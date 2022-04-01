@@ -1,0 +1,10 @@
+*.o
+.*
+!.gitignore
+*.json
+app
+environment
+*.so
+Enclave_t.*
+Enclave_u.*
+*.pem
