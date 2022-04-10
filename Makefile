@@ -42,7 +42,6 @@ SGX_COMMON_FLAGS += -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type \
                     -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow \
                     -Wcast-align -Wcast-qual -Wconversion -Wredundant-decls
 SGX_COMMON_CFLAGS := $(SGX_COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
-#SGX_COMMON_CXXFLAGS := $(SGX_COMMON_FLAGS) -Wnon-virtual-dtor -std=c++11
 
 ######## App Settings ########
 
@@ -69,7 +68,6 @@ else
         App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-#App_Cpp_Flags := $(App_C_Flags)
 App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name)
 
 App_C_Objects := $(App_C_Files:.c=.o)
@@ -97,8 +95,6 @@ ifeq ($(CC_BELOW_4_9), 1)
 else
 	Enclave_C_Flags += -fstack-protector-strong
 endif
-
-#Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++
 
 # Enable the security flags
 Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
@@ -191,9 +187,6 @@ App/Enclave_u.h: $(SGX_EDGER8R) Enclave/Enclave.edl
 
 App/Enclave_u.c: App/Enclave_u.h
 
-#App/Enclave_u.o: App/Enclave_u.c
-#	$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
-
 App/%.o: App/%.c App/Enclave_u.h
 	$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
 
@@ -206,9 +199,6 @@ Enclave/Enclave_t.h: $(SGX_EDGER8R) Enclave/Enclave.edl
 	cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
 
 Enclave/Enclave_t.c: Enclave/Enclave_t.h
-
-#Enclave/Enclave_t.o: Enclave/Enclave_t.c
-#	$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
 
 Enclave/%.o: Enclave/%.c Enclave/Enclave_t.h
 	$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
