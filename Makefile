@@ -9,7 +9,7 @@ include $(SGX_SDK)/buildenv.mk
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
-else ifeq ($(findstring -m32, $(CXXFLAGS)), -m32)
+else ifeq ($(findstring -m32, $(CFLAGS)), -m32)
 	SGX_ARCH := x86
 endif
 
@@ -42,7 +42,7 @@ SGX_COMMON_FLAGS += -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type \
                     -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow \
                     -Wcast-align -Wcast-qual -Wconversion -Wredundant-decls
 SGX_COMMON_CFLAGS := $(SGX_COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
-SGX_COMMON_CXXFLAGS := $(SGX_COMMON_FLAGS) -Wnon-virtual-dtor -std=c++11
+#SGX_COMMON_CXXFLAGS := $(SGX_COMMON_FLAGS) -Wnon-virtual-dtor -std=c++11
 
 ######## App Settings ########
 
@@ -52,7 +52,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-App_Cpp_Files := App/App.cpp
+App_C_Files := $(wildcard App/*.c)
 App_Include_Paths := -IInclude -IApp -I$(SGX_SDK)/include
 
 App_C_Flags := -fPIC -Wno-attributes $(App_Include_Paths)
@@ -69,10 +69,10 @@ else
         App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-App_Cpp_Flags := $(App_C_Flags)
+#App_Cpp_Flags := $(App_C_Flags)
 App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name)
 
-App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
+App_C_Objects := $(App_C_Files:.c=.o)
 
 App_Name := app
 
@@ -87,8 +87,8 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_Cpp_Files := Enclave/Enclave.cpp
-Enclave_Include_Paths := -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
+Enclave_C_Files := $(wildcard Enclave/*.c)
+Enclave_Include_Paths := -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc # -I$(SGX_SDK)/include/libcxx
 
 Enclave_C_Flags := $(Enclave_Include_Paths) -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections $(MITIGATION_CFLAGS)
 CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
@@ -98,7 +98,7 @@ else
 	Enclave_C_Flags += -fstack-protector-strong
 endif
 
-Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++
+#Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++
 
 # Enable the security flags
 Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
@@ -113,13 +113,13 @@ Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
 Enclave_Link_Flags := $(MITIGATION_LDFLAGS) $(Enclave_Security_Link_Flags) \
     -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_TRUSTED_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 -Wl,--gc-sections   \
 	-Wl,--version-script=Enclave/Enclave.lds
 
-Enclave_Cpp_Objects := $(sort $(Enclave_Cpp_Files:.cpp=.o))
+Enclave_C_Objects := $(sort $(Enclave_C_Files:.c=.o))
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
@@ -176,59 +176,50 @@ endif
 
 run: all
 ifneq ($(Build_Mode), HW_RELEASE)
-	@$(CURDIR)/$(App_Name)
-	@echo "RUN  =>  $(App_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
+	$(CURDIR)/$(App_Name)
+	echo "RUN  =>  $(App_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
 endif
 
 .config_$(Build_Mode)_$(SGX_ARCH):
-	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
-	@touch .config_$(Build_Mode)_$(SGX_ARCH)
+	rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_C_Objects) App/Enclave_u.* $(Enclave_C_Objects) Enclave/Enclave_t.*
+	touch .config_$(Build_Mode)_$(SGX_ARCH)
 
 ######## App Objects ########
 
 App/Enclave_u.h: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
-	@echo "GEN  =>  $@"
+	cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
 
 App/Enclave_u.c: App/Enclave_u.h
 
-App/Enclave_u.o: App/Enclave_u.c
-	@$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
+#App/Enclave_u.o: App/Enclave_u.c
+#	$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
 
-App/%.o: App/%.cpp  App/Enclave_u.h
-	@$(CXX) $(SGX_COMMON_CXXFLAGS) $(App_Cpp_Flags) -c $< -o $@
-	@echo "CXX  <=  $<"
+App/%.o: App/%.c App/Enclave_u.h
+	$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
 
-$(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(App_Link_Flags)
-	@echo "LINK =>  $@"
+$(App_Name): App/Enclave_u.o $(App_C_Objects)
+	$(CC) $^ -o $@ $(App_Link_Flags)
 
 ######## Enclave Objects ########
 
 Enclave/Enclave_t.h: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
-	@echo "GEN  =>  $@"
+	cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
 
 Enclave/Enclave_t.c: Enclave/Enclave_t.h
 
-Enclave/Enclave_t.o: Enclave/Enclave_t.c
-	@$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
+#Enclave/Enclave_t.o: Enclave/Enclave_t.c
+#	$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
 
-Enclave/%.o: Enclave/%.cpp Enclave/Enclave_t.h
-	@$(CXX) $(SGX_COMMON_CXXFLAGS) $(Enclave_Cpp_Flags) -c $< -o $@
-	@echo "CXX  <=  $<"
+Enclave/%.o: Enclave/%.c Enclave/Enclave_t.h
+	$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
 
-$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects)
-	$(CXX) $^ -o $@ $(Enclave_Link_Flags)
-	@echo "LINK =>  $@"
+$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_C_Objects)
+	$(CC) $^ -o $@ $(Enclave_Link_Flags)
 
 $(Signed_Enclave_Name): $(Enclave_Name)
-	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private_test.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
-	@echo "SIGN =>  $@"
+	$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private_test.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 
 .PHONY: clean
 
 clean:
-	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_C_Objects) App/Enclave_u.* $(Enclave_C_Objects) Enclave/Enclave_t.*
