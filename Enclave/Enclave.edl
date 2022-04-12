@@ -1,5 +1,13 @@
 enclave {
     trusted {
-        public void ecall_hello_from_enclave([out, size=len] char* buf, size_t len);
+        public int ecall_efs_init();
+    };
+
+    untrusted {
+        include "../Include/types.h"
+
+        int ocall_disk_read([out, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
+
+        int ocall_disk_write([in, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
     };
 };

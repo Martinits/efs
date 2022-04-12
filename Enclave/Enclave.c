@@ -5,21 +5,6 @@
 #include "types.h"
 #include "efs.h"
 
-void ecall_hello_from_enclave(char *buf, size_t len)
-{
-    const char *hello = "Hello world";
-
-    size_t size = len;
-    if(strlen(hello) < len)
-    {
-        size = strlen(hello) + 1;
-    }
-
-    memcpy(buf, hello, size - 1);
-    buf[size-1] = '\0';
-}
-
-
 FILE* fopen(const char *filename, const char *opentype){
 
 }
