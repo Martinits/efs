@@ -1,8 +1,9 @@
 #include "types.h"
 #include "cache.h"
+#include "enclave_t.h"
 #include <stdlib.h>
 
-struct cache cac;
+struct queue fifo, lru;
 
 static int queue_evict(struct queue *q, struct block *evict)
 {
@@ -12,7 +13,7 @@ static int queue_evict(struct queue *q, struct block *evict)
     evict->next->prev = evict->prev;
     q->head.list_len--;
 
-    if(map_delete(&cac.lru.mp, evict->blk_id) != 0) return 1;
+    if(map_delete(&lru.mp, evict->blk_id) != 0) return 1;
 
     evict->prev = evict->next = NULL;
 
@@ -22,7 +23,11 @@ static int queue_evict(struct queue *q, struct block *evict)
 static int queue_node_free(struct block *node)
 {
     if(node->dirty){
-        ocall_disk_write();
+        int retval;
+        if(SGX_SUCCESS !=
+            ocall_disk_write(&retval, node->data, DISK_OFFSET(node->blk_id), BLK_SZ)
+            || retval != 0)
+            return 1;
     }
 
     free(node);
@@ -56,12 +61,6 @@ static int queue_insert_to_head(struct queue *q, struct block *node)
     return map_insert(&q->mp, node->blk_id, node);
 }
 
-static int queue_fifo_move_to_lru_head(struct block *node)
-{
-    return queue_evict(&cac.fifo, node) || queue_insert_to_head(&cac.lru, node);
-}
-
-
 static int queue_move_to_head(struct queue *q, struct block *node)
 {
     return queue_evict(q, node) || queue_insert_to_head(q, node);
@@ -76,24 +75,24 @@ static struct block *queue_search(struct queue *q, uint32_t blk_id)
 
 int cache_init(void)
 {
-    return map_init(&cac.fifo.mp) || map_init(&cac.lru.mp);
+    return map_init(&fifo.mp) || map_init(&lru.mp);
 }
 
 static struct block *block_is_in_cache(uint32_t id)
 {
     // whether its in lru_list
-    struct block *res = queue_search(&cac.lru, id);
+    struct block *res = queue_search(&lru, id);
     if(res){
-        if(!queue_move_to_head(&cac.lru, res))
+        if(!queue_move_to_head(&lru, res))
             return NULL;
         return res;
     }
 
     //whether its in fifo_list
-    res = queue_search(&cac.fifo, id);
+    res = queue_search(&fifo, id);
     if(res){
-        if(!queue_evict(&cac.fifo, res)) return NULL;
-        if(!queue_insert_to_head(&cac.lru, res)) return NULL;
+        if(!queue_evict(&fifo, res)) return NULL;
+        if(!queue_insert_to_head(&lru, res)) return NULL;
         return res;
     }
 
@@ -114,10 +113,18 @@ static struct block *block_put_in_cache(uint32_t id)
     res->next = res->prev = NULL;
     res->refcnt = 0;
 
-    ocall_disk_read();
-
-    if(queue_insert_to_head(&cac.fifo, res) != 0)
+    int retval;
+    if(SGX_SUCCESS !=
+        ocall_disk_read(&retval, res->data, DISK_OFFSET(id), BLK_SZ)
+        || retval != 0){
+        free(res);
         return NULL;
+    }
+
+    if(queue_insert_to_head(&fifo, res) != 0){
+        free(res);
+        return NULL;
+    }
     return res;
 }
 

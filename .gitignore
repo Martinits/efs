@@ -2,11 +2,11 @@
 .*
 !.gitignore
 *.json
-app
+efs
 environment
 *.so
-Enclave_t.c
-Enclave_t.h
-Enclave_u.c
-Enclave_u.h
+enclave_t.c
+enclave_t.h
+enclave_u.c
+enclave_u.h
 *.pem

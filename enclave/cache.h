@@ -8,7 +8,7 @@
 #define HASH_SZ (256)
 #define DATA_SZ (BLK_SZ - HASH_SZ)
 
-#define BUF_SZ (100)
+#define DISK_OFFSET(id) (BLK_SZ * (id))
 
 #define QUEUE_MAX_LEN (256)
 
@@ -27,11 +27,6 @@ struct block {
 struct queue {
     struct block head;
     struct map mp;
-};
-
-struct cache {
-    struct block blk_list[BUF_SZ];
-    struct queue fifo, lru;
 };
 
 int cache_init(void);

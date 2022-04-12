@@ -1,5 +1,5 @@
-#include "Enclave.h"
-#include "Enclave_t.h"
+#include "fops.h"
+#include "enclave_t.h"
 #include <string.h>
 #include <stdio.h>
 #include "types.h"

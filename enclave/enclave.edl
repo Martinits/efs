@@ -4,7 +4,7 @@ enclave {
     };
 
     untrusted {
-        include "../Include/types.h"
+        include "../include/types.h"
 
         int ocall_disk_read([out, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
 
