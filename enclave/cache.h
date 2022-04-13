@@ -2,43 +2,25 @@
 #define _CACHE_H
 
 #include "types.h"
-#include "map.h"
+#include "queue.h"
 
-#define BLK_SZ (4096)
-#define HASH_SZ (256)
-#define DATA_SZ (BLK_SZ - HASH_SZ)
+#define BLOCK_READ  (0)
+#define BLOCK_WRITE (1)
 
-#define DISK_OFFSET(id) (BLK_SZ * (id))
+#define BLOCK_GET_RO (0)
+#define BLOCK_GET_RW (1)
 
-#define QUEUE_MAX_LEN (256)
+typedef int (*blockio_callback_t)(uint8_t*, uint32_t, int);
 
-struct block {
-    union {
-        uint32_t blk_id;
-        uint32_t list_len;
-    };
-    uint8_t data[BLK_SZ];
-    int refcnt;
-    int dirty;
-    struct block *prev;
-    struct block *next;
+struct cache {
+    struct queue fifo, lru;
+    blockio_callback_t block_rw;
 };
 
-struct queue {
-    struct block head;
-    struct map mp;
-};
+int cache_init(struct cache *cac, blockio_callback_t block_rw);
 
-int cache_init(void);
+uint8_t *cache_get_block(struct cache *cac, uint32_t blk_id, int rw);
 
-uint8_t *block_get_ro(uint32_t id);
-
-uint8_t *block_get_rw(uint32_t id);
-
-int block_return_ro(uint32_t id);
-
-int block_return_rw(uint32_t id);
-
-int block_pin(uint32_t id);
+int cache_return_block(struct cache *cac, uint32_t blk_id, int rw);
 
 #endif

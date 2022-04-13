@@ -1,107 +1,55 @@
 #include "types.h"
+#include "queue.h"
 #include "cache.h"
 #include "enclave_t.h"
 #include <stdlib.h>
 
-struct queue fifo, lru;
-
-static int queue_evict(struct queue *q, struct block *evict)
+static int node_free(struct cache *cac, struct block *node)
 {
-    if(q->head.list_len == 0) return 1;
+    if(node == NULL) return 1;
 
-    evict->prev->next = evict->next;
-    evict->next->prev = evict->prev;
-    q->head.list_len--;
-
-    if(map_delete(&lru.mp, evict->blk_id) != 0) return 1;
-
-    evict->prev = evict->next = NULL;
-
-    return 0;
-}
-
-static int queue_node_free(struct block *node)
-{
-    if(node->dirty){
-        int retval;
-        if(SGX_SUCCESS !=
-            ocall_disk_write(&retval, node->data, DISK_OFFSET(node->blk_id), BLK_SZ)
-            || retval != 0)
+    if(node->dirty)
+        if(0 != cac->block_rw(node->data, node->blk_id, BLOCK_WRITE))
             return 1;
-    }
 
     free(node);
-
     return 0;
 }
 
-static int queue_dieout(struct queue *q)
-{
-    if(q->head.list_len == 0) return 1;
-
-    struct block *evict = q->head.prev;
-    while(evict != &q->head && evict->refcnt != 0) evict = evict->prev;
-    if(evict == &q->head) return 1;
-
-    return queue_evict(q, evict) || queue_node_free(evict);
-}
-
-static int queue_insert_to_head(struct queue *q, struct block *node)
-{
-    if(q->head.list_len >= QUEUE_MAX_LEN){
-        if(queue_dieout(q) != 0) return 1;
-    }
-
-    q->head.next->prev = node;
-    node->next = q->head.next;
-    q->head.next = node;
-    node->prev = &q->head;
-    q->head.list_len++;
-
-    return map_insert(&q->mp, node->blk_id, node);
-}
-
-static int queue_move_to_head(struct queue *q, struct block *node)
-{
-    return queue_evict(q, node) || queue_insert_to_head(q, node);
-}
-
-static struct block *queue_search(struct queue *q, uint32_t blk_id)
-{
-    if(q->head.list_len == 0) return NULL;
-
-    return map_search(&q->mp, blk_id);
-}
-
-int cache_init(void)
-{
-    return map_init(&fifo.mp) || map_init(&lru.mp);
-}
-
-static struct block *block_is_in_cache(uint32_t id)
+static struct block *block_is_in_cache(struct cache *cac, uint32_t id)
 {
     // whether its in lru_list
-    struct block *res = queue_search(&lru, id);
+    struct block *res = queue_search(&cac->lru, id);
     if(res){
-        if(!queue_move_to_head(&lru, res))
+        struct block *tofree = NULL;
+        if(0 != queue_move_to_head(&cac->lru, res, &tofree))
             return NULL;
+        if(tofree != NULL)
+            if(0 != node_free(cac, tofree))
+                return NULL;
         return res;
     }
 
     //whether its in fifo_list
-    res = queue_search(&fifo, id);
+    res = queue_search(&cac->fifo, id);
     if(res){
-        if(!queue_evict(&fifo, res)) return NULL;
-        if(!queue_insert_to_head(&lru, res)) return NULL;
+        struct block *tofree = NULL;
+        if(0 != queue_evict(&cac->fifo, res))
+            return NULL;
+        if(0 != queue_insert_to_head(&cac->lru, res, &tofree))
+            return NULL;
+        if(tofree != NULL)
+            if(0 != node_free(cac, tofree))
+                return NULL;
         return res;
     }
 
     return NULL;
 }
 
-static struct block *block_put_in_cache(uint32_t id)
+static struct block *block_put_in_cache(struct cache *cac, uint32_t id)
 {
-    struct block *res = block_is_in_cache(id);
+    struct block *res = block_is_in_cache(cac, id);
     if(res != NULL) return res;
 
     //not in cache
@@ -113,67 +61,63 @@ static struct block *block_put_in_cache(uint32_t id)
     res->next = res->prev = NULL;
     res->refcnt = 0;
 
-    int retval;
-    if(SGX_SUCCESS !=
-        ocall_disk_read(&retval, res->data, DISK_OFFSET(id), BLK_SZ)
-        || retval != 0){
+    if(0 != cac->block_rw(res->data, res->blk_id, BLOCK_READ)){
         free(res);
         return NULL;
     }
 
-    if(queue_insert_to_head(&fifo, res) != 0){
+    struct block *tofree = NULL;
+    if(0 != queue_insert_to_head(&cac->fifo, res, &tofree)){
         free(res);
         return NULL;
     }
+    if(tofree != NULL)
+        if(0 != node_free(cac, tofree))
+            return NULL;
     return res;
 }
 
-uint8_t *block_get_ro(uint32_t id)
+int cache_init(struct cache *cac, blockio_callback_t block_rw)
 {
-    struct block *blk = block_put_in_cache(id);
+    cac->block_rw = block_rw;
+    return queue_init(&cac->fifo) || queue_init(&cac->lru);
+}
+
+uint8_t *cache_get_block(struct cache *cac, uint32_t blk_id, int rw)
+{
+    if(rw != BLOCK_GET_RO && rw != BLOCK_GET_RW)
+        return NULL;
+
+    struct block *blk = block_put_in_cache(cac, blk_id);
     if(blk == NULL) return NULL;
 
-    if(blk->refcnt < 0) return NULL;
-    blk->refcnt++;
+    if(rw == BLOCK_GET_RO){
+        if(blk->refcnt < 0) return NULL;
+        blk->refcnt++;
+    }else{
+        if(blk->refcnt != 0) return NULL;
+        blk->refcnt = -1;
+        blk->dirty = 1;
+    }
 
     return blk->data;
 }
 
-uint8_t *block_get_rw(uint32_t id)
+int cache_return_block(struct cache *cac, uint32_t blk_id, int rw)
 {
-    struct block *blk = block_put_in_cache(id);
-    if(blk == NULL) return NULL;
+    if(rw != BLOCK_GET_RO && rw != BLOCK_GET_RW)
+        return 1;
 
-    if(blk->refcnt != 0) return NULL;
-    blk->refcnt = -1;
-    blk->dirty = 1;
-
-    return blk->data;
-}
-
-int block_return_ro(uint32_t id)
-{
-    struct block *res = block_is_in_cache(id);
+    struct block *res = block_is_in_cache(cac, blk_id);
     if(res == NULL) return 1;
 
-    if(res->refcnt <= 0) return 1;
-    res->refcnt--;
+    if(rw ==BLOCK_GET_RO){
+        if(res->refcnt <= 0) return 1;
+        res->refcnt--;
+    }else{
+        if(res->refcnt != -1) return 1;
+        res->refcnt = 0;
+    }
 
-    return 0;
-}
-
-int block_return_rw(uint32_t id)
-{
-    struct block *res = block_is_in_cache(id);
-    if(res == NULL) return 1;
-
-    if(res->refcnt != -1) return 1;
-    res->refcnt = 0;
-
-    return 0;
-}
-
-int block_pin(uint32_t id)
-{
     return 0;
 }
