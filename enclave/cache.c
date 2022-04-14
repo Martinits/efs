@@ -4,25 +4,25 @@
 #include "enclave_t.h"
 #include <stdlib.h>
 
-static int node_free(struct cache *cac, struct block *node)
+static int node_free(struct cache *cac, struct list *node)
 {
     if(node == NULL) return 1;
 
     if(node->dirty)
-        if(0 != cac->block_rw(node->data, node->blk_id, BLOCK_WRITE))
+        if(0 != cac->content_cb(node->content, node->id, CONTENT_WRITE))
             return 1;
 
     free(node);
     return 0;
 }
 
-static struct block *block_is_in_cache(struct cache *cac, uint32_t id)
+static struct list *content_is_in_cache(struct cache *cac, uint32_t id)
 {
     // whether its in lru_list
-    struct block *res = queue_search(&cac->lru, id);
+    struct list *res = queue_search(&cac->lru, id);
     if(res){
-        struct block *tofree = NULL;
-        if(0 != queue_move_to_head(&cac->lru, res, &tofree))
+        struct list *tofree = NULL;
+        if(0 != queue_move_to_head(&cac->lru, res, (void **)&tofree))
             return NULL;
         if(tofree != NULL)
             if(0 != node_free(cac, tofree))
@@ -33,10 +33,10 @@ static struct block *block_is_in_cache(struct cache *cac, uint32_t id)
     //whether its in fifo_list
     res = queue_search(&cac->fifo, id);
     if(res){
-        struct block *tofree = NULL;
+        struct list *tofree = NULL;
         if(0 != queue_evict(&cac->fifo, res))
             return NULL;
-        if(0 != queue_insert_to_head(&cac->lru, res, &tofree))
+        if(0 != queue_insert_to_head(&cac->lru, res, (void **)&tofree))
             return NULL;
         if(tofree != NULL)
             if(0 != node_free(cac, tofree))
@@ -47,27 +47,27 @@ static struct block *block_is_in_cache(struct cache *cac, uint32_t id)
     return NULL;
 }
 
-static struct block *block_put_in_cache(struct cache *cac, uint32_t id)
+static struct list *content_put_in_cache(struct cache *cac, uint32_t id)
 {
-    struct block *res = block_is_in_cache(cac, id);
+    struct list *res = content_is_in_cache(cac, id);
     if(res != NULL) return res;
 
     //not in cache
-    res = (struct block *)malloc(sizeof(struct block));
+    res = (struct list *)malloc(sizeof(struct list));
     if(res == NULL) return NULL;
 
-    res->blk_id = id;
+    res->id = id;
     res->dirty = 0;
     res->next = res->prev = NULL;
     res->refcnt = 0;
 
-    if(0 != cac->block_rw(res->data, res->blk_id, BLOCK_READ)){
+    if(0 != cac->content_cb(res->content, res->id, CONTENT_READ)){
         free(res);
         return NULL;
     }
 
-    struct block *tofree = NULL;
-    if(0 != queue_insert_to_head(&cac->fifo, res, &tofree)){
+    struct list *tofree = NULL;
+    if(0 != queue_insert_to_head(&cac->fifo, res, (void **)&tofree)){
         free(res);
         return NULL;
     }
@@ -77,41 +77,41 @@ static struct block *block_put_in_cache(struct cache *cac, uint32_t id)
     return res;
 }
 
-int cache_init(struct cache *cac, blockio_callback_t block_rw)
+int cache_init(struct cache *cac, content_free_cb_t content_cb)
 {
-    cac->block_rw = block_rw;
+    cac->content_cb = content_cb;
     return queue_init(&cac->fifo) || queue_init(&cac->lru);
 }
 
-uint8_t *cache_get_block(struct cache *cac, uint32_t blk_id, int rw)
+void *cache_get(struct cache *cac, uint32_t id, int rw)
 {
-    if(rw != BLOCK_GET_RO && rw != BLOCK_GET_RW)
+    if(rw != CACHE_GET_RO && rw != CACHE_GET_RW)
         return NULL;
 
-    struct block *blk = block_put_in_cache(cac, blk_id);
-    if(blk == NULL) return NULL;
+    struct list *node = content_put_in_cache(cac, id);
+    if(node == NULL) return NULL;
 
-    if(rw == BLOCK_GET_RO){
-        if(blk->refcnt < 0) return NULL;
-        blk->refcnt++;
+    if(rw == CACHE_GET_RO){
+        if(node->refcnt < 0) return NULL;
+        node->refcnt++;
     }else{
-        if(blk->refcnt != 0) return NULL;
-        blk->refcnt = -1;
-        blk->dirty = 1;
+        if(node->refcnt != 0) return NULL;
+        node->refcnt = -1;
+        node->dirty = 1;
     }
 
-    return blk->data;
+    return node->content;
 }
 
-int cache_return_block(struct cache *cac, uint32_t blk_id, int rw)
+int cache_return(struct cache *cac, uint32_t id, int rw)
 {
-    if(rw != BLOCK_GET_RO && rw != BLOCK_GET_RW)
+    if(rw != CACHE_GET_RO && rw != CACHE_GET_RW)
         return 1;
 
-    struct block *res = block_is_in_cache(cac, blk_id);
+    struct list *res = content_is_in_cache(cac, id);
     if(res == NULL) return 1;
 
-    if(rw ==BLOCK_GET_RO){
+    if(rw ==CACHE_GET_RO){
         if(res->refcnt <= 0) return 1;
         res->refcnt--;
     }else{

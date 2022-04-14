@@ -4,7 +4,7 @@
 #include "rbtree.h"
 #include "types.h"
 
-struct block;
+struct list;
 
 struct map {
     struct rb_root tree_root;
@@ -12,9 +12,9 @@ struct map {
 
 int map_init(struct map *mp);
 
-int map_insert(struct map *mp, uint32_t blk_id, struct block* pos);
+int map_insert(struct map *mp, uint32_t blk_id, struct list *pos);
 
-struct block *map_search(struct map *mp, uint32_t blk_id);
+struct list *map_search(struct map *mp, uint32_t blk_id);
 
 int map_delete(struct map *mp, uint32_t blk_id);
 

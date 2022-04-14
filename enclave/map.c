@@ -5,7 +5,7 @@
 struct treenode {
     struct rb_node node;
     uint32_t blk_id;
-    struct block *pos_in_list;
+    struct list *pos_in_list;
 };
 
 static struct treenode *rb_search(struct rb_root *root, uint32_t blk_id)
@@ -62,7 +62,7 @@ int map_init(struct map *mp)
     return 0;
 }
 
-int map_insert(struct map *mp, uint32_t blk_id, struct block* pos)
+int map_insert(struct map *mp, uint32_t blk_id, struct list* pos)
 {
     struct treenode *newnode = (struct treenode *)malloc(sizeof(struct treenode));
     if(newnode == NULL) return 1;
@@ -73,7 +73,7 @@ int map_insert(struct map *mp, uint32_t blk_id, struct block* pos)
     return rb_insert(&mp->tree_root, newnode);
 }
 
-struct block *map_search(struct map *mp, uint32_t blk_id)
+struct list *map_search(struct map *mp, uint32_t blk_id)
 {
     struct treenode *result = rb_search(&mp->tree_root, blk_id);
     if(result == NULL) return NULL;
