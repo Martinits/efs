@@ -9,5 +9,9 @@ enclave {
         int ocall_disk_read([out, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
 
         int ocall_disk_write([in, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
+
+        int ocall_log(int log_type, [in, size = len] char *msg, uint32_t len);
+
+        void ocall_panic(int exitcode);
     };
 };

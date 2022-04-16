@@ -55,7 +55,7 @@ endif
 APP_C_SOURCES := $(wildcard app/*.c)
 APP_INCLUDE_PATHS := -Iinclude -Iapp -I$(SGX_SDK)/include
 
-APP_CFLAGS := -fPIC -Wno-attributes $(APP_INCLUDE_PATHS)
+APP_CFLAGS := -fPIC -Wno-attributes $(APP_INCLUDE_PATHS) -DLOG_USE_COLOR
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.

@@ -2,13 +2,15 @@
 #include <string.h>
 #include <assert.h>
 
-# include <unistd.h>
-# include <pwd.h>
-# define MAX_PATH FILENAME_MAX
+#include <unistd.h>
+#include <pwd.h>
+#define MAX_PATH FILENAME_MAX
 
 #include "sgx_urts.h"
 #include "entry.h"
 #include "enclave_u.h"
+
+extern int ocall_init(void);
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -37,6 +39,8 @@ int SGX_CDECL main(int argc, char *argv[])
     char buffer[max_buf_len];
     memset(buffer, 0, sizeof(buffer));
 
+    if(0 != ocall_init())
+        return -1;
 
     if(initialize_enclave() < 0){
         printf("Enter a character before exit ...\n");
