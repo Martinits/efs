@@ -4,20 +4,20 @@
 
 struct treenode {
     struct rb_node node;
-    uint32_t blk_id;
+    uint32_t id;
     struct list *pos_in_list;
 };
 
-static struct treenode *rb_search(struct rb_root *root, uint32_t blk_id)
+static struct treenode *rb_search(struct rb_root *root, uint32_t id)
 {
     struct rb_node *node = root->rb_node;
 
     while(node){
         struct treenode *data = container_of(node, struct treenode, node);
 
-        if(blk_id < data->blk_id)
+        if(id < data->id)
             node = node->rb_left;
-        else if(blk_id > data->blk_id)
+        else if(id > data->id)
             node = node->rb_right;
         else
             return data;
@@ -34,9 +34,9 @@ static int rb_insert(struct rb_root *root, struct treenode *data)
         struct treenode *this = container_of(*new, struct treenode, node);
 
         parent = *new;
-        if(data->blk_id < this->blk_id)
+        if(data->id < this->id)
             new = &((*new)->rb_left);
-        else if(data->blk_id > this->blk_id)
+        else if(data->id > this->id)
             new = &((*new)->rb_right);
         else
             return 1;
@@ -62,28 +62,28 @@ int map_init(struct map *mp)
     return 0;
 }
 
-int map_insert(struct map *mp, uint32_t blk_id, struct list* pos)
+int map_insert(struct map *mp, uint32_t id, struct list* pos)
 {
     struct treenode *newnode = (struct treenode *)malloc(sizeof(struct treenode));
     if(newnode == NULL) return 1;
 
-    newnode->blk_id = blk_id;
+    newnode->id = id;
     newnode->pos_in_list = pos;
 
     return rb_insert(&mp->tree_root, newnode);
 }
 
-struct list *map_search(struct map *mp, uint32_t blk_id)
+struct list *map_search(struct map *mp, uint32_t id)
 {
-    struct treenode *result = rb_search(&mp->tree_root, blk_id);
+    struct treenode *result = rb_search(&mp->tree_root, id);
     if(result == NULL) return NULL;
 
     return result->pos_in_list;
 }
 
-int map_delete(struct map *mp, uint32_t blk_id)
+int map_delete(struct map *mp, uint32_t id)
 {
-    struct treenode *result = rb_search(&mp->tree_root, blk_id);
+    struct treenode *result = rb_search(&mp->tree_root, id);
     if(result == NULL) return 1;
 
     rb_erase(&result->node, &mp->tree_root);

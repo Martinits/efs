@@ -12,10 +12,10 @@ struct map {
 
 int map_init(struct map *mp);
 
-int map_insert(struct map *mp, uint32_t blk_id, struct list *pos);
+int map_insert(struct map *mp, uint32_t id, struct list *pos);
 
-struct list *map_search(struct map *mp, uint32_t blk_id);
+struct list *map_search(struct map *mp, uint32_t id);
 
-int map_delete(struct map *mp, uint32_t blk_id);
+int map_delete(struct map *mp, uint32_t id);
 
 #endif

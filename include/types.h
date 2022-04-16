@@ -12,4 +12,9 @@ typedef unsigned long uint64_t;
 
 typedef uint64_t size_t;
 
+#define UINT8_MAX 0xff
+#define UINT16_MAX 0xffff
+#define UINT32_MAX 0xffffffff
+#define UINT64_MAX 0xffffffffffffffff
+
 #endif

@@ -4,8 +4,6 @@
 #include "types.h"
 #include "map.h"
 
-#define DISK_OFFSET(id) (BLK_SZ * (id))
-
 #define QUEUE_MAX_LEN (256)
 
 struct list {
