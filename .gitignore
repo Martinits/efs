@@ -3,7 +3,6 @@
 !.gitignore
 *.json
 efs
-environment
 *.so
 enclave_t.c
 enclave_t.h
@@ -11,3 +10,4 @@ enclave_u.c
 enclave_u.h
 *.pem
 todolist
+tmp*

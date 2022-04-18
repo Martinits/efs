@@ -1,6 +1,7 @@
 ######## SGX SDK Settings ########
 
 SGX_SDK ?= /opt/intel/sgxsdk
+SGX_SSL ?= /opt/intel/sgxssl
 SGX_MODE ?= SIM
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
@@ -85,9 +86,12 @@ else
 	SERVICE_LIB_NAME := sgx_tservice
 endif
 CRYPTO_LIB_NAME := sgx_tcrypto
+SGX_PTHREAD_LIB_NAME := sgx_pthread
+SGX_SSL_LIB_NAME := sgx_tsgxssl
+SGX_SSL_LIB_PATH := $(SGX_SSL)/lib64
 
 ENCLAVE_C_SOURCES := $(wildcard enclave/*.c)
-ENCLAVE_INCLUDE_PATHS := -Iinclude -Ienclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
+ENCLAVE_INCLUDE_PATHS := -Iinclude -Ienclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SSL)/include
 
 ENCLAVE_CFLAGS := $(ENCLAVE_INCLUDE_PATHS) -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections $(MITIGATION_CFLAGS)
 CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
@@ -108,9 +112,11 @@ ENCLAVE_SECURITY_LINK_FLAGS := -Wl,-z,relro,-z,now,-z,noexecstack
 # Do NOT move the libraries linked with `--start-group' and `--end-group' within `--whole-archive' and `--no-whole-archive' options.
 # Otherwise, you may get some undesirable errors.
 ENCLAVE_LINK_FLAGS := $(MITIGATION_LDFLAGS) $(ENCLAVE_SECURITY_LINK_FLAGS) \
-    -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_TRUSTED_LIBRARY_PATH) \
+    -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_TRUSTED_LIBRARY_PATH) -L$(SGX_SSL_LIB_PATH)\
 	-Wl,--whole-archive -l$(TRTS_LIB_NAME) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -l$(CRYPTO_LIB_NAME) -l$(SERVICE_LIB_NAME) -Wl,--end-group \
+	-Wl,--start-group -l$(SGX_SSL_LIB_NAME) -l$(SGX_SSL_LIB_NAME)_crypto \
+	-lsgx_tstdc -lsgx_tcxx -l$(SGX_PTHREAD_LIB_NAME) \
+	-l$(CRYPTO_LIB_NAME) -l$(SERVICE_LIB_NAME) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 -Wl,--gc-sections   \
