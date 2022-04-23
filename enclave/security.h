@@ -3,18 +3,20 @@
 
 #include "types.h"
 
-struct key128 {
+typedef struct {
     uchar k[16];
-};
+} key128_t;
 
-struct key256 {
+typedef struct {
     uchar k[32];
-};
+} key256_t;
 
-int aes128_block_encrypt(const struct key128 *iv, const struct key128 *key, uint8_t *data);
+int aes128_block_encrypt(const key128_t *iv, const key128_t *key, uint8_t *data);
 
-int aes128_block_decrypt(const struct key128 *iv, const struct key128 *key, uint8_t *data);
+int aes128_block_decrypt(const key128_t *iv, const key128_t *key, uint8_t *data);
 
-int sha256_block(uint8_t *data, struct key256 *hash);
+int sha256_block(const uint8_t *data, key256_t *hash);
+
+int sha256_validate(const uint8_t *data, const key256_t *exp_hash);
 
 #endif

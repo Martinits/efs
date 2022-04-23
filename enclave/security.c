@@ -8,7 +8,7 @@
 #include <openssl/err.h>
 #include <string.h>
 
-int aes128_block_encrypt(const struct key128 *iv, const struct key128 *key, uint8_t *data)
+int aes128_block_encrypt(const key128_t *iv, const key128_t *key, uint8_t *data)
 {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
@@ -40,7 +40,7 @@ int aes128_block_encrypt(const struct key128 *iv, const struct key128 *key, uint
     return 0;
 }
 
-int aes128_block_decrypt(const struct key128 *iv, const struct key128 *key, uint8_t *data)
+int aes128_block_decrypt(const key128_t *iv, const key128_t *key, uint8_t *data)
 {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
@@ -72,7 +72,7 @@ int aes128_block_decrypt(const struct key128 *iv, const struct key128 *key, uint
     return 0;
 }
 
-int sha256_block(uint8_t *data, struct key256 *hash)
+int sha256_block(const uint8_t *data, key256_t *hash)
 {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 
@@ -98,6 +98,18 @@ int sha256_block(uint8_t *data, struct key256 *hash)
     memcpy(hash->k, digest, sizeof(hash->k));
 
     OPENSSL_free(digest);
+
+    return 0;
+}
+
+int sha256_validate(const uint8_t *data, const key256_t *exp_hash)
+{
+    key256_t hash;
+    if(0 != sha256_block(data, &hash)) return 1;
+
+    for(ulong i = 0; i < sizeof(hash.k)/sizeof(hash.k[0]); i++){
+        if(hash.k[i] ^ exp_hash->k[i]) return 1;
+    }
 
     return 0;
 }
