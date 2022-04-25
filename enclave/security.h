@@ -19,4 +19,6 @@ int sha256_block(const uint8_t *data, key256_t *hash);
 
 int sha256_validate(const uint8_t *data, const key256_t *exp_hash);
 
+key256_t *zero_block_sha256(void);
+
 #endif

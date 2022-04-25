@@ -6,6 +6,8 @@
 #include "security.h"
 #include <pthread.h>
 
+#define MIN(a, b) ((a) > (b) ? (b) : (a))
+
 #define INODE_TP_DIR (0)
 #define INODE_TP_FILE (1)
 typedef struct {
@@ -17,21 +19,6 @@ typedef struct {
     key128_t aes_key, aes_iv;
     key256_t hash[NDIRECT + 3];
 } inode_t;
-
-#define BLK_TP_INODE  (0)
-#define BLK_TP_BITMAP (1)
-#define BLK_TP_DATA   (2)
-// #define BLK_TP_INDEX  (3)
-#define HASH_IS_IN_INODE (0)
-#define HASH_IS_IN_INDEX (1)
-typedef struct {
-    uint16_t type;
-    uint16_t iid;
-    uint8_t hash_subidx[4];
-    uint32_t bid;
-    pthread_mutex_t lock;
-    uint8_t data[BLK_SZ];
-} block_t;
 
 int inode_init(void);
 

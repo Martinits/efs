@@ -8,6 +8,14 @@
 #include <openssl/err.h>
 #include <string.h>
 
+key256_t zero_sha256;
+
+int security_init(void)
+{
+    uint8_t tmp[BLK_SZ] = {0};
+    return sha256_block(tmp, &zero_sha256);
+}
+
 int aes128_block_encrypt(const key128_t *iv, const key128_t *key, uint8_t *data)
 {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -112,4 +120,9 @@ int sha256_validate(const uint8_t *data, const key256_t *exp_hash)
     }
 
     return 0;
+}
+
+key256_t *zero_block_sha256(void)
+{
+    return &zero_sha256;
 }
