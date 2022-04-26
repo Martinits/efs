@@ -47,28 +47,6 @@ typedef struct {
                             i + 1;            \
                         })
 
-#define BITCOUNT64(n) ({                                             \
-                        uint64_t u = (n);                            \
-                        u -= ((n) >> 1) & 0x7777777777777777;        \
-                        u -= ((n) >> 2) & 0x3333333333333333;        \
-                        u -= ((n) >> 3) & 0x1111111111111111;        \
-                        ((u + (u >> 4)) & 0x0f0f0f0f0f0f0f0f) % 255; \
-                    })
-
-#define NEXT_POW2_64(n) ({                    \
-                            uint64_t i = (n); \
-                            i |= i >> 1;      \
-                            i |= i >> 2;      \
-                            i |= i >> 4;      \
-                            i |= i >> 8;      \
-                            i |= i >> 16;     \
-                            i |= i >> 32;     \
-                            i + 1;            \
-                        })
-
-#define LEFTMOST_SET_BIT_MASK_64(n) (NEXT_POW2_64(n) >> 1)
-#define LEFTMOST_SET_BIT_64(n) ((n) == 0 ? -1 : BITCOUNT64(LEFTMOST_SET_BIT_MASK_64(n) - 1))
-
 #define BLK_SZ (4096)
 #define BLK_SZ_BITS (12)
 #define DISK_OFFSET(bid) (bid << BLK_SZ_BITS)
@@ -76,9 +54,9 @@ typedef struct {
 #define SUPERBLOCK_START (0)
 #define SUPERBLOCK_CNT ((sizeof(superblock_t) >> BLK_SZ_BITS) + 1)
 
+// reversed for little endian
 #define INODE_BITMAP_START (SUPERBLOCK_START + SUPERBLOCK_CNT)
 #define INODE_BITMAP_CNT (1)
-#define BITMAP_FIRST_EMPTY_64(n) (63 - LEFTMOST_SET_BIT_64(n))
 
 #define INODE_START (INODE_BITMAP_START + INODE_BITMAP_CNT)
 #define INODE_SZ NEXT_POW2_INCLUDE_32(sizeof(dinode_t))
@@ -87,10 +65,14 @@ typedef struct {
 #define INODE_DISK_OFFSET(iid) (INODE_START + iid / INODE_PER_BLOCK)
 #define INODE_BLOCK_OFFSET(iid) ((iid % INODE_PER_BLOCK) * INODE_SZ)
 
+// reversed for little endian
 #define BITMAP_START (INODE_START + INODE_CNT)
 #define BITMAP_CNT (512) // 64G
 
 #define DATA_START (BITMAP_START + BITMAP_CNT)
+
+#define BID2DID(bid) ((bid) - DATA_START)
+#define DID2BID(did) ((did) + DATA_START)
 
 #define SB_KEY_CNT (INODE_BITMAP_CNT + INODE_CNT + BITMAP_CNT)
 #define SB_KEY_IDX(bid) (bid - INODE_BITMAP_START)

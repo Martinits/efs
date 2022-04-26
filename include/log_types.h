@@ -6,6 +6,6 @@
 #define LOG_INFO  (2)
 #define LOG_WARN  (3)
 #define LOG_ERROR (4)
-#define LOG_FATAL  (5)
+#define LOG_FATAL (5)
 
 #endif

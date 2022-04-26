@@ -1,11 +1,11 @@
 #include "types.h"
-#include "inode.h"
 #include "cache.h"
 #include "security.h"
 #include "layout.h"
 #include "error.h"
 #include "disk.h"
 #include "block.h"
+#include "bitmap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -137,13 +137,13 @@ int block_make_dirty(block_t *bp)
 
 uint32_t block_alloc(void)
 {
-
-
-    // memset to 0
-
+    return DID2BID(dbm_alloc());
 }
 
 int block_free(uint32_t bid)
 {
+    if(bid < DATA_START)
+        panic("block: try to free metadata blocks");
 
+    return dbm_free(BID2DID(bid));
 }

@@ -7,12 +7,13 @@ enclave {
         public int ecall_efs_init();
     };
 
+    #define BLK_SZ 4096
     untrusted {
         include "../include/types.h"
 
-        int ocall_disk_read([out, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
+        int ocall_disk_read([out, size = BLK_SZ] uint8_t *buf, uint32_t bid);
 
-        int ocall_disk_write([in, size = len] uint8_t *buf, uint32_t offset, uint32_t len);
+        int ocall_disk_write([in, size = BLK_SZ] uint8_t *buf, uint32_t bid);
 
         int ocall_log(int log_type, [in, size = len] char *msg, uint32_t len);
 

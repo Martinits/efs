@@ -28,13 +28,14 @@ int ocall_init(void)
     return 0;
 }
 
-int ocall_disk_read(uint8_t *buf, uint32_t offset, uint32_t len)
+int ocall_disk_read(uint8_t *buf, uint32_t bid)
 {
+    // if not exist, augment disk to desired size and pad with 0
     printf("bufread4096\n");
     return 0;
 }
 
-int ocall_disk_write(uint8_t *buf, uint32_t offset, uint32_t len)
+int ocall_disk_write(uint8_t *buf, uint32_t bid)
 {
     printf("bufwrite4096\n");
     return 0;
