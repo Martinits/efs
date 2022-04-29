@@ -25,7 +25,7 @@
 
 #define LEFTMOST_SET_BIT_MASK_64(n) (NEXT_POW2_64(n) >> 1)
 #define LEFTMOST_SET_BIT_64(n) BITCOUNT64(LEFTMOST_SET_BIT_MASK_64(n) - 1)
-#define BITMAP_FIRST_EMPTY_64(n) ((~(n) == 0) ? -1 : (63 - LEFTMOST_SET_BIT_64(~(n))))
+#define BITMAP_FIRST_EMPTY_64(n) ((~(n) == 0) ? -1 : (int)(63 - LEFTMOST_SET_BIT_64(~(n))))
 
 #define BITMAP_WORD_PER_BLOCK (BLK_SZ / sizeof(uint64_t))
 #define BITMAP_WORDID2BID(wid) (BITMAP_START + BITMAP_CNT - 1 - (wid)/BITMAP_WORD_PER_BLOCK)
@@ -41,6 +41,6 @@ uint32_t dbm_alloc(void);
 
 int dbm_free(uint32_t did);
 
-int bitmap_exit();
+int bitmap_exit(void);
 
 #endif

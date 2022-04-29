@@ -3,16 +3,18 @@
 
 #include "types.h"
 #include "map.h"
+#include <pthread.h>
 
 #define QUEUE_MAX_LEN (256)
 
 struct list {
     uint32_t id;
-    int refcnt;
+    uint32_t refcnt;
     int dirty;
     void *content;
     struct list *prev;
     struct list *next;
+    pthread_mutex_t lock;
 };
 
 struct queue {

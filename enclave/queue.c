@@ -1,5 +1,6 @@
 #include "types.h"
 #include "queue.h"
+#include "map.h"
 
 int queue_init(struct queue *q)
 {

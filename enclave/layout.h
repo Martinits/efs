@@ -47,27 +47,27 @@ typedef struct {
                             i + 1;            \
                         })
 
-#define BLK_SZ (4096)
-#define BLK_SZ_BITS (12)
+#define BLK_SZ (4096U)
+#define BLK_SZ_BITS (12U)
 #define DISK_OFFSET(bid) (bid << BLK_SZ_BITS)
 
 #define SUPERBLOCK_START (0)
-#define SUPERBLOCK_CNT ((sizeof(superblock_t) >> BLK_SZ_BITS) + 1)
+#define SUPERBLOCK_CNT (uint32_t)((sizeof(superblock_t) >> BLK_SZ_BITS) + 1)
 
 // reversed for little endian
 #define INODE_BITMAP_START (SUPERBLOCK_START + SUPERBLOCK_CNT)
-#define INODE_BITMAP_CNT (1)
+#define INODE_BITMAP_CNT (1U)
 
 #define INODE_START (INODE_BITMAP_START + INODE_BITMAP_CNT)
-#define INODE_SZ NEXT_POW2_INCLUDE_32(sizeof(dinode_t))
+#define INODE_SZ (512U) // NEXT_POW2_INCLUDE_32(sizeof(dinode_t))
 #define INODE_PER_BLOCK (BLK_SZ / INODE_SZ)
-#define INODE_CNT (8 * INODE_BITMAP_CNT * 512 /*INODE_SZ*/)
-#define INODE_DISK_OFFSET(iid) (INODE_START + iid / INODE_PER_BLOCK)
+#define INODE_CNT (8 * INODE_BITMAP_CNT * INODE_SZ)
+#define INODE_IID2BID(iid) (INODE_START + (iid) / INODE_PER_BLOCK)
 #define INODE_BLOCK_OFFSET(iid) ((iid % INODE_PER_BLOCK) * INODE_SZ)
 
 // reversed for little endian
 #define BITMAP_START (INODE_START + INODE_CNT)
-#define BITMAP_CNT (512) // 64G
+#define BITMAP_CNT (512U) // 64G
 
 #define DATA_START (BITMAP_START + BITMAP_CNT)
 
@@ -75,7 +75,7 @@ typedef struct {
 #define DID2BID(did) ((did) + DATA_START)
 
 #define SB_KEY_CNT (INODE_BITMAP_CNT + INODE_CNT + BITMAP_CNT)
-#define SB_KEY_IDX(bid) (bid - INODE_BITMAP_START)
+#define SB_KEY_IDX(bid) ((bid) - INODE_BITMAP_START)
 
 typedef struct {
     uint32_t magic;
@@ -95,5 +95,9 @@ typedef struct {
 } superblock_t;
 
 #define EFS_MAGIC 0x04546530
+
+#define SB_IV_PTR(bid) (&sb.aes_iv[SB_KEY_IDX(bid)])
+#define SB_KEY_PTR(bid) (&sb.aes_key[SB_KEY_IDX(bid)])
+#define SB_HASH_PTR(bid) (&sb.hash[SB_KEY_IDX(bid)])
 
 #endif

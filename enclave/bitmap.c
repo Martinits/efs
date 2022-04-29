@@ -58,7 +58,7 @@ int ibm_free(uint16_t iid)
 {
     uint8_t *p = ibm + sizeof(ibm) - (iid/8 + 1);
 
-    *p &= ~(1 << (iid%8));
+    *p &= (uint8_t)~(1U << (iid%8));
 
     return 0;
 }
@@ -70,7 +70,7 @@ uint32_t dbm_alloc(void)
     uint32_t wid = dbm_first_empty_word % BITMAP_WORD_PER_BLOCK;
 
     for(; bid >= BITMAP_START; bid--, wid = 0){
-        block_t *bp = bget_from_cache_lock(bid, 0, NULL, &sb.aes_iv[SB_KEY_IDX(bid)],
+        block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
                                             &sb.aes_key[SB_KEY_IDX(bid)],
                                             &sb.hash[SB_KEY_IDX(bid)]);
         if(bp == NULL){
@@ -94,7 +94,7 @@ uint32_t dbm_alloc(void)
             // if this word is full, move to next word
             if(~(*p) == 0) dbm_first_empty_word++;
 
-            block_make_dirty(bp);
+            block_make_dirty(bp->bid);
             block_unlock_return(bp);
             return ret;
         }
@@ -113,7 +113,7 @@ int dbm_free(uint32_t did)
 
     uint32_t bid = BITMAP_DID2BID(did);
 
-    block_t *bp = bget_from_cache_lock(bid, 0, NULL, &sb.aes_iv[SB_KEY_IDX(bid)],
+    block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
                                         &sb.aes_key[SB_KEY_IDX(bid)],
                                         &sb.hash[SB_KEY_IDX(bid)]);
     if(bp == NULL){
@@ -124,13 +124,13 @@ int dbm_free(uint32_t did)
     uint32_t blk_offset = did % (BLK_SZ * 8);
     uint8_t *p = bp->data + BLK_SZ - 1 - blk_offset / 8;
 
-    *p &= ~(1 << (blk_offset%8));
+    *p &= (uint8_t)~(1U << (blk_offset%8));
 
-    return block_make_dirty(bp) || block_unlock_return(bp);
+    return block_make_dirty(bp->bid) || block_unlock_return(bp);
 }
 
 int bitmap_exit()
 {
     // write back ibm
-
+    return 0;
 }

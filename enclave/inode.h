@@ -14,13 +14,17 @@ typedef struct {
     uint16_t iid; // 0 for empty
     uint32_t type;
     uint32_t size;
+    dinode_t *dip;
     uint32_t bid[NDIRECT + 3]; //0 for empty
-    pthread_mutex_t lock;
     key128_t aes_key, aes_iv;
     key256_t hash[NDIRECT + 3];
 } inode_t;
 
 int inode_init(void);
+
+int inode_lock(inode_t *ip);
+
+int inode_unlock(inode_t *ip);
 
 inode_t *inode_get(const char *path);
 
