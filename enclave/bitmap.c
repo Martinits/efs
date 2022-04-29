@@ -7,9 +7,11 @@
 #include "log_types.h"
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 extern superblock_t sb;
 uint8_t ibm[BLK_SZ * INODE_BITMAP_CNT];
+pthread_mutex_t ibm_lock = PTHREAD_MUTEX_INITIALIZER;
 uint32_t dbm_first_empty_word = 0; // with probability
 
 int bitmap_init(void)
@@ -37,6 +39,8 @@ int bitmap_init(void)
 
 uint16_t ibm_alloc(void)
 {
+    pthread_mutex_lock(&ibm_lock);
+
     uint32_t ret = 0;
     uint64_t *p = (uint64_t *)(ibm + sizeof(ibm) - sizeof(*p));
     int tmp;
@@ -51,14 +55,20 @@ uint16_t ibm_alloc(void)
     *p |= 1 << tmp;
     ret += tmp;
 
+    pthread_mutex_unlock(&ibm_lock);
+
     return (uint16_t)ret;
 }
 
 int ibm_free(uint16_t iid)
 {
+    pthread_mutex_lock(&ibm_lock);
+
     uint8_t *p = ibm + sizeof(ibm) - (iid/8 + 1);
 
     *p &= (uint8_t)~(1U << (iid%8));
+
+    pthread_mutex_unlock(&ibm_lock);
 
     return 0;
 }
