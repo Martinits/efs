@@ -5,6 +5,7 @@ enclave {
 
     trusted {
         public int ecall_efs_init();
+        public int ecall_efs_exit();
     };
 
     #define BLK_SZ 4096
