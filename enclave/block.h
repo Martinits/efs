@@ -56,6 +56,10 @@ int pd_wb_delete(uint32_t bid);
 
 uint32_t block_alloc(void);
 
-int block_free(uint32_t bid);
+int block_free(uint32_t bid, int setzero);
+
+uint8_t *bget_raw(uint32_t bid, const key128_t *iv, const key128_t *key, int *in_cache);
+
+void breturn_raw(uint32_t bid, int in_cache, uint8_t *data);
 
 #endif

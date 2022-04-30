@@ -6,6 +6,7 @@
 #include "error.h"
 #include "disk.h"
 #include "block.h"
+#include "bitmap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,12 +16,58 @@ extern superblock_t sb;
 
 cache_t icac;
 
-static int icache_cb_write(void *content, uint32_t iid, int dirty)
+static void index_free_recursive(uint32_t bid, int level, const key128_t *iv, const key128_t *key)
+{
+    int in_cache;
+    index_t *idxp = (index_t *)bget_raw(bid, iv, key, &in_cache);
+
+    for(uint i = 0; i < INDEX_PER_BLOCK; i++){
+        if(idxp[i].bid){
+            if(level <= 1) block_free(idxp[i].bid, 0);
+            else index_free_recursive(idxp[i].bid, level-1, iv, key);
+        }
+    }
+
+    breturn_raw(bid, in_cache, (uint8_t *)idxp);
+    block_free(bid, 1);
+}
+
+// not holding cache lock now
+// no need to lock ip because refcnt == 0 so no other is holding it
+static int icache_cb_write(void *content, uint32_t iid, int dirty, int deleted)
 {
     inode_t *ip = (inode_t *)content;
     uint32_t bid = INODE_IID2BID(iid);
 
-    if(dirty){
+    if(deleted){
+        // go through index and block_free()
+        // index block free with setzero
+        for(int i = 0; i < NDIRECT; i++){
+            if(ip->bid[i])
+                block_free(ip->bid[i], 0);
+        }
+
+        if(ip->bid[NDIRECT])
+            index_free_recursive(ip->bid[NDIRECT], 1, &ip->aes_iv, &ip->aes_key);
+
+        if(ip->bid[NDIRECT + 1])
+            index_free_recursive(ip->bid[NDIRECT + 1], 2, &ip->aes_iv, &ip->aes_key);
+
+        if(ip->bid[NDIRECT + 2])
+            index_free_recursive(ip->bid[NDIRECT + 2], 3, &ip->aes_iv, &ip->aes_key);
+
+        // setzero inode block
+        block_lock(bid);
+
+        memset(ip->dip, 0, sizeof(dinode_t));
+
+        block_make_dirty(bid);
+        block_unlock(bid);
+
+        // ibm_free
+        ibm_free((uint16_t)iid);
+
+    }else if(dirty){
         block_lock(bid);
 
         ip->dip->type = ip->type;
@@ -35,7 +82,7 @@ static int icache_cb_write(void *content, uint32_t iid, int dirty)
     }
 
     breturn_to_cache(bid);
-    free(content);
+    free(ip);
     return 0;
 }
 
@@ -44,20 +91,22 @@ int inode_init(void)
     return block_init() || cache_init(&icac, icache_cb_write);
 }
 
-int inode_lock(inode_t *ip)
+static int inode_lock(inode_t *ip)
 {
     return cache_node_unlock(&icac, ip->iid);
 }
 
-int inode_unlock(inode_t *ip)
+static int inode_unlock(inode_t *ip)
 {
     return cache_node_lock(&icac, ip->iid);
 }
 
-static inode_t *iget_from_cache(uint16_t iid)
+static inode_t *iget_from_cache(uint16_t iid, int sure_not_cached)
 {
-    inode_t *ret = cache_try_get(&icac, iid, 0);
-    if(ret) return ret;
+    if(!sure_not_cached){
+        inode_t *ret = cache_try_get(&icac, iid, 0);
+        if(ret) return ret;
+    }
 
     inode_t **ipp = (inode_t **)cache_insert_get(&icac, iid, 0);
 
@@ -91,6 +140,11 @@ static int inode_unlock_return(inode_t *ip)
 static int inode_make_dirty(inode_t *ip)
 {
     return cache_make_dirty(&icac, ip->iid);
+}
+
+static int inode_make_deleted(inode_t *ip)
+{
+    return cache_make_deleted(&icac, ip->iid);
 }
 
 static void get_real_hash_ip(inode_t *ip, uint32_t bidx)
@@ -160,9 +214,9 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
             if(ip->bid[bidx] == 0) return 0;
             memcpy(&ip->hash[bidx], zero_block_sha256(), sizeof(key256_t));
             inode_make_dirty(ip);
+        }else{
+            get_real_hash_ip(ip, bidx);
         }
-
-        get_real_hash_ip(ip, bidx);
 
         memcpy(exp_hash, &ip->hash[bidx], sizeof(key256_t));
         return ip->bid[bidx];
@@ -172,7 +226,14 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
     if(bidx < NINDIRECT1){
         /*hashidx[0].idx = NDIRECT;*/
 
-        get_real_hash_ip(ip, NDIRECT);
+        if(write && ip->bid[NDIRECT] == 0){
+            ip->bid[NDIRECT] = block_alloc();
+            if(ip->bid[NDIRECT] == 0) return 0;
+            memcpy(&ip->hash[NDIRECT], zero_block_sha256(), sizeof(key256_t));
+            inode_make_dirty(ip);
+        }else{
+            get_real_hash_ip(ip, NDIRECT);
+        }
 
         index_lookup_one_level(&idx, ip, ip->bid[NDIRECT], (uint8_t)bidx,
                                 /*hashidx,*/ &ip->hash[NDIRECT], write);
@@ -187,7 +248,14 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
     if(bidx < NINDIRECT2){
         /*hashidx[0].idx = NDIRECT + 1;*/
 
-        get_real_hash_ip(ip, NDIRECT + 1);
+        if(write && ip->bid[NDIRECT + 1] == 0){
+            ip->bid[NDIRECT + 1] = block_alloc();
+            if(ip->bid[NDIRECT + 1] == 0) return 0;
+            memcpy(&ip->hash[NDIRECT + 1], zero_block_sha256(), sizeof(key256_t));
+            inode_make_dirty(ip);
+        }else{
+            get_real_hash_ip(ip, NDIRECT + 1);
+        }
 
         index_lookup_one_level(&idx, ip, ip->bid[NDIRECT + 1],
                                 (uint8_t)(bidx/INDEX_PER_BLOCK), /*hashidx,*/
@@ -209,7 +277,14 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
 
     /*hashidx[0].idx = NDIRECT + 2;*/
 
-    get_real_hash_ip(ip, NDIRECT + 2);
+    if(write && ip->bid[NDIRECT + 2] == 0){
+        ip->bid[NDIRECT + 2] = block_alloc();
+        if(ip->bid[NDIRECT + 2] == 0) return 0;
+        memcpy(&ip->hash[NDIRECT + 2], zero_block_sha256(), sizeof(key256_t));
+        inode_make_dirty(ip);
+    }else{
+        get_real_hash_ip(ip, NDIRECT + 2);
+    }
 
     index_lookup_one_level(&idx, ip, ip->bid[NDIRECT + 2],
                             (uint8_t)(bidx/INDEX_PER_BLOCK/INDEX_PER_BLOCK),
@@ -279,12 +354,12 @@ static uint32_t inode_rw_data(inode_t *ip, void *buf, uint32_t off, uint32_t siz
 }
 
 // must hold inode lock
-static uint16_t inode_getsubdir(inode_t *ip, const char *dirname)
+static uint16_t inode_getsub(inode_t *ip, const char *dirname)
 {
     dirent_t de;
 
     for(uint32_t off = 0; off < ip->size; off += sizeof(dirent_t)){
-        if(inode_rw_data(ip, &de, off, sizeof(de), 0) != sizeof(de))
+        if(sizeof(de) != inode_rw_data(ip, &de, off, sizeof(de), 0))
             panic("dirread failed");
         if(de.iid == 0)
             continue;
@@ -308,12 +383,109 @@ static const char *name_of_next_level(const char *path, char *buf)
     return path[i] == 0 ? (path + i) : (path + i + 1);
 }
 
-inode_t *inode_get(const char *path)
+// must hold ip lock
+static inode_t *inode_new_get(inode_t *ip, const char *name, uint16_t type)
 {
+    //find whether same name
+    dirent_t de;
+    int empty = -1;
+
+    if(strlen(name) > sizeof(de.name)) return NULL;
+
+    for(uint32_t off = 0; off < ip->size; off += sizeof(dirent_t)){
+        if(sizeof(de) != inode_rw_data(ip, &de, off, sizeof(de), 0))
+            panic("dirread failed");
+        if(de.iid == 0){
+            if(empty == -1) empty = off / sizeof(de);
+            continue;
+        }
+        if(!strcmp(name, de.name))
+            return NULL;
+    }
+
+    if(empty == -1) return NULL;
+
+    uint16_t iid = ibm_alloc();
+    if(iid == 0) return 0;
+
+    de.iid = iid;
+    strncpy(de.name, name, sizeof(de.name));
+
+    if(sizeof(de) != inode_rw_data(ip, &de, empty * (uint32_t)sizeof(de), sizeof(de), 1))
+        return NULL;
+
+    inode_t *newip = iget_from_cache(iid, 1);
+    inode_lock(newip);
+
+    newip->iid = iid;
+    newip->type = type;
+    newip->size = 0;
+    memset(&newip->bid, 0, sizeof(newip->bid));
+    memset(&newip->hash, 0, sizeof(ip->hash));
+    key128_gen(&ip->aes_iv);
+    key128_gen(&ip->aes_key);
+    inode_make_dirty(newip);
+
+    inode_unlock(newip);
+    return newip;
+}
+
+// must hold ip lock
+static uint16_t inode_new(inode_t *ip, const char *name, uint16_t type)
+{
+    inode_t *newip = inode_new_get(ip, name, type);
+    if(newip == NULL) return 0;
+
+    uint16_t iid = newip->iid;
+    inode_return(newip);
+
+    return iid;
+}
+
+// must hold ip lock
+static int inode_delete(inode_t *ip, const char *name, uint16_t type)
+{
+    //whether exist
+    dirent_t de;
+    inode_t *delip = NULL;
+
+    if(strlen(name) > sizeof(de.name)) return 1;
+
+    for(uint32_t off = 0; off < ip->size; off += sizeof(dirent_t)){
+        if(sizeof(de) != inode_rw_data(ip, &de, off, sizeof(de), 0))
+            panic("dirread failed");
+        if(de.iid == 0)
+            continue;
+        if(!strcmp(name, de.name))
+            goto found;
+    }
+
+    return 1;
+
+found:
+    delip = iget_from_cache(de.iid, 0);
+    if(delip == NULL) return 1;
+
+    inode_lock(delip);
+    if(delip->type != type){
+        inode_unlock(delip);
+        return 1;
+    }
+    inode_make_deleted(delip);
+    inode_unlock(delip);
+
+    return 0;
+}
+
+// return not locked ip
+static inode_t *inode_get(const char *path, uint16_t type, int alloc)
+{
+    if(type == INODE_TP_DIR && alloc) return NULL;
+
     if(path[0] != '/') return NULL;
 
     const char *p = path + 1;
-    inode_t *ip = iget_from_cache(sb.rootinode), *tmp = NULL;
+    inode_t *ip = iget_from_cache(sb.rootinode, 0), *tmp = NULL;
     char buf[DIRNAME_MAX_LEN+1] = {0};
 
     while(*p){
@@ -324,16 +496,24 @@ inode_t *inode_get(const char *path)
 
         if(ip->type != INODE_TP_DIR) goto error;
 
-        uint16_t iid = inode_getsubdir(ip, buf);
-        if(iid == 0) goto error;
+        uint16_t iid = inode_getsub(ip, buf);
+        if(iid == 0){
+            if(*p == 0 && alloc)
+                iid = inode_new(ip, buf, INODE_TP_FILE);
+            else goto error;
+        }
 
         inode_unlock_return(ip);
 
-        tmp = iget_from_cache(iid);
+        tmp = iget_from_cache(iid, 0);
         if(tmp == NULL) goto error;
 
         ip = tmp;
     }
+
+    inode_lock(ip);
+    if(ip->type != type) goto error;
+    inode_unlock(ip);
 
     return ip;
 
@@ -342,23 +522,77 @@ error:
     return NULL;
 }
 
-int inode_read(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len)
+inode_t *inode_get_file(const char *path, int alloc)
+{
+    return inode_get(path, INODE_TP_FILE, alloc);
+}
+
+inode_t *inode_get_dir(const char *path)
+{
+    return inode_get(path, INODE_TP_DIR, 0);
+}
+
+int inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len)
 {
     if(ip == NULL) return 0;
 
+    uint32_t ret = 0;
     inode_lock(ip);
-    uint32_t ret = inode_rw_data(ip, to, offset, len, 0);
+
+    if(ip->type == INODE_TP_FILE)
+        ret = inode_rw_data(ip, to, offset, len, 0);
+
     inode_unlock(ip);
 
     return ret;
 }
 
-int inode_write(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len)
+int inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len)
 {
     if(ip == NULL) return 0;
 
+    uint32_t ret = 0;
     inode_lock(ip);
-    uint32_t ret = inode_rw_data(ip, from, offset, len, 1);
+
+    if(ip->type == INODE_TP_FILE)
+        ret = inode_rw_data(ip, from, offset, len, 1);
+
+    inode_unlock(ip);
+
+    return ret;
+}
+
+int inode_mkdir(inode_t *ip, const char *name)
+{
+    inode_lock(ip);
+    uint16_t iid = inode_new(ip, name, INODE_TP_DIR);
+    inode_unlock(ip);
+
+    return iid == 0;
+}
+
+int inode_rmdir(inode_t *ip, const char *name)
+{
+    inode_lock(ip);
+    int ret = inode_delete(ip, name, INODE_TP_DIR);
+    inode_unlock(ip);
+
+    return ret;
+}
+
+int inode_mkfile(inode_t *ip, const char *name)
+{
+    inode_lock(ip);
+    uint16_t iid = inode_new(ip, name, INODE_TP_FILE);
+    inode_unlock(ip);
+
+    return iid == 0;
+}
+
+int inode_rmfile(inode_t *ip, const char* name)
+{
+    inode_lock(ip);
+    int ret = inode_delete(ip, name, INODE_TP_FILE);
     inode_unlock(ip);
 
     return ret;

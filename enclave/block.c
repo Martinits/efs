@@ -74,15 +74,17 @@ pthread_mutex_t pd_wb_lk;
 // }
 
 // not holding cache lock now
-static int bcache_cb_write(void *content, uint32_t bid, int dirty)
+// no need to lock block because refcnt == 0 so no other is holding it
+static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 {
-    if(!dirty){
-        free(content);
+    block_t *bp = (block_t *)content;
+
+    if(deleted || !dirty){
+        free(bp);
         return 0;
     }
 
-    block_t *bp = (block_t *)content;
-
+    //dirty
     if(bid < INODE_BITMAP_START){
         panic("bcache tries to write back superblock");
         return 1;
@@ -317,8 +319,11 @@ int pd_wb_insert(uint32_t bid, const key256_t *hash)
 
 int pd_wb_delete(uint32_t bid)
 {
-    free(map_search(&pd_wb, bid));
-    return map_delete(&pd_wb, bid);
+    key256_t *tofree = NULL;
+    if(0 != map_delete(&pd_wb, bid, (void **)&tofree))
+        free(tofree);
+
+    return 0;
 }
 
 uint32_t block_alloc(void)
@@ -326,10 +331,52 @@ uint32_t block_alloc(void)
     return DID2BID(dbm_alloc());
 }
 
-int block_free(uint32_t bid)
+int block_free(uint32_t bid, int setzero)
 {
     if(bid < DATA_START)
         panic("block: try to free metadata blocks");
 
+    // rm in pd_wb
+    if(0 != pd_wb_delete(bid)) return 1;
+
+    // find in cache and make deleted, may fail for not in cache
+    cache_make_deleted(&bcac, bid);
+
+    // dbm_free
+    if(setzero) disk_setzero(bid);
+
     return dbm_free(BID2DID(bid));
 }
+
+// without hash validation, for writing back deleted inode only
+uint8_t *bget_raw(uint32_t bid, const key128_t *iv, const key128_t *key, int *in_cache)
+{
+    if(bid < DATA_START) return NULL;
+
+    block_t *ret = cache_try_get(&bcac, bid, 1);
+    if(ret){
+        *in_cache = 1;
+        return ret->data;
+    }
+
+    uint8_t *blk = (uint8_t *)malloc(BLK_SZ);
+    if(blk == NULL) return NULL;
+
+    if(0 != disk_read(blk, bid)) return NULL;
+
+    if(0 != aes128_block_decrypt(iv, key, blk)) return NULL;
+
+    *in_cache = 0;
+
+    return blk;
+}
+
+void breturn_raw(uint32_t bid, int in_cache, uint8_t *data)
+{
+    if(in_cache)
+        cache_unlock_return(&bcac, bid);
+    else
+        free(data);
+    return;
+}
+

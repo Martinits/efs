@@ -12,7 +12,7 @@
 #define INODE_TP_FILE (1)
 typedef struct {
     uint16_t iid; // 0 for empty
-    uint32_t type;
+    uint16_t type;
     uint32_t size;
     dinode_t *dip;
     uint32_t bid[NDIRECT + 3]; //0 for empty
@@ -22,15 +22,25 @@ typedef struct {
 
 int inode_init(void);
 
-int inode_lock(inode_t *ip);
+//int inode_lock(inode_t *ip);
 
-int inode_unlock(inode_t *ip);
+//int inode_unlock(inode_t *ip);
 
-inode_t *inode_get(const char *path);
+inode_t *inode_get_file(const char *path, int alloc);
 
-int inode_read(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len);
+inode_t *inode_get_dir(const char *path);
 
-int inode_write(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len);
+int inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len);
+
+int inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len);
+
+int inode_mkdir(inode_t *ip, const char *name);
+
+int inode_rmdir(inode_t *ip, const char *name);
+
+int inode_mkfile(inode_t *ip, const char *name);
+
+int inode_rmfile(inode_t *ip, const char* name);
 
 int inode_return(inode_t *ip);
 

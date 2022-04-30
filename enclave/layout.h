@@ -16,7 +16,7 @@ typedef struct {
 #define NINDIRECT3 (NINDIRECT2 * INDEX_PER_BLOCK)
 
 typedef struct {
-    uint32_t type;
+    uint16_t type;
     uint32_t size;
     uint32_t bid[NDIRECT + 3];
     key128_t aes_key, aes_iv;

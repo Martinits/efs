@@ -33,3 +33,17 @@ int disk_write(uint8_t *buf, uint32_t bid)
     return 0;
 }
 
+int disk_setzero(uint32_t bid)
+{
+    pthread_mutex_lock(&disk_lock);
+
+    int retval;
+    if(SGX_SUCCESS != ocall_disk_setzero(&retval, bid) || retval != 0){
+        pthread_mutex_unlock(&disk_lock);
+        return 1;
+    }
+
+    pthread_mutex_unlock(&disk_lock);
+    return 0;
+
+}

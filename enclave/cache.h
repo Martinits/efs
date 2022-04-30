@@ -13,7 +13,7 @@
 #define CACHE_GET_RW (1)
 
 // typedef int (*content_cb_read_t)(void **, uint32_t, struct key128 *, struct key256 *);
-typedef int (*content_cb_write_t)(void *, uint32_t, int);
+typedef int (*content_cb_write_t)(void *, uint32_t, int, int);
 
 typedef struct {
     struct queue fifo, lru;
@@ -28,6 +28,8 @@ void *cache_try_get(cache_t *cac, uint32_t id, int lock);
 void **cache_insert_get(cache_t *cac, uint32_t id, int lock);
 
 int cache_make_dirty(cache_t *cac, uint32_t id);
+
+int cache_make_deleted(cache_t *cac, uint32_t id);
 
 int cache_return(cache_t *cac, uint32_t id);
 

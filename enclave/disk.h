@@ -9,4 +9,6 @@ int disk_read(uint8_t *buf, uint32_t bid);
 
 int disk_write(uint8_t *buf, uint32_t bid);
 
+int disk_setzero(uint32_t bid);
+
 #endif

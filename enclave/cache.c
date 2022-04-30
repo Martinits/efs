@@ -9,7 +9,7 @@ static int node_free(content_cb_write_t content_cb_write, struct list *node)
     if(node == NULL) return 1;
 
     if(content_cb_write)
-        if(0 != content_cb_write(node->content, node->id, node->dirty))
+        if(0 != content_cb_write(node->content, node->id, node->dirty, node->deleted))
             return 1;
 
     free(node);
@@ -103,7 +103,8 @@ void **cache_insert_get(cache_t *cac, uint32_t id, int lock)
     res->id = id;
     res->dirty = 0;
     res->next = res->prev = NULL;
-    res->refcnt = 0;
+    res->refcnt = 1;
+    res->deleted = 0;
     res->content = NULL;
     res->lock = (typeof(res->lock))PTHREAD_MUTEX_INITIALIZER;
 
@@ -133,6 +134,10 @@ void *cache_try_get(cache_t *cac, uint32_t id, int lock)
     if(res == NULL) return NULL;
 
     node_lock(res);
+    if(res->deleted){
+        node_unlock(res);
+        return NULL;
+    }
     res->refcnt++;
     if(!lock) node_unlock(res);
     return res->content;
@@ -145,6 +150,17 @@ int cache_make_dirty(cache_t *cac, uint32_t id)
     if(node == NULL) return 1;
 
     node->dirty = 1;
+
+    return 0;
+}
+
+// must hold node lock
+int cache_make_deleted(cache_t *cac, uint32_t id)
+{
+    struct list *node = cache_find(cac, id);
+    if(node == NULL) return 1;
+
+    node->deleted = 1;
 
     return 0;
 }

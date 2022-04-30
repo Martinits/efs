@@ -15,7 +15,7 @@ int queue_evict(struct queue *q, struct list *evict)
     evict->next->prev = evict->prev;
     q->len--;
 
-    if(map_delete(&q->mp, evict->id) != 0) return 1;
+    if(map_delete(&q->mp, evict->id, NULL) != 0) return 1;
 
     evict->prev = evict->next = NULL;
 

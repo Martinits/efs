@@ -81,10 +81,13 @@ void *map_search(struct map *mp, uint32_t id)
     return result->data;
 }
 
-int map_delete(struct map *mp, uint32_t id)
+// do not free node->data
+int map_delete(struct map *mp, uint32_t id, void **tofree)
 {
     struct treenode *result = rb_search(&mp->tree_root, id);
     if(result == NULL) return 1;
+
+    if(tofree) *tofree = result->data;
 
     rb_erase(&result->node, &mp->tree_root);
     rb_free(result);

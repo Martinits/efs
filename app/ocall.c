@@ -41,6 +41,11 @@ int ocall_disk_write(uint8_t *buf, uint32_t bid)
     return 0;
 }
 
+int ocall_disk_setzero(uint32_t bid)
+{
+    // pad 0
+}
+
 int ocall_log(int log_type, char *msg, uint32_t len)
 {
     if(strlen(msg) != len)

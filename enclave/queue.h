@@ -10,7 +10,8 @@
 struct list {
     uint32_t id;
     uint32_t refcnt;
-    int dirty;
+    uint16_t dirty;
+    uint16_t deleted;
     void *content;
     struct list *prev;
     struct list *next;

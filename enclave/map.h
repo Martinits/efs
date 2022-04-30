@@ -14,6 +14,6 @@ int map_insert(struct map *mp, uint32_t id, void *data);
 
 void *map_search(struct map *mp, uint32_t id);
 
-int map_delete(struct map *mp, uint32_t id);
+int map_delete(struct map *mp, uint32_t id, void **tofree);
 
 #endif

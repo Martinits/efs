@@ -16,6 +16,8 @@ enclave {
 
         int ocall_disk_write([in, size = BLK_SZ] uint8_t *buf, uint32_t bid);
 
+        int ocall_disk_setzero(uint32_t bid);
+
         int ocall_log(int log_type, [in, size = len] char *msg, uint32_t len);
 
         void ocall_panic(int exitcode);
