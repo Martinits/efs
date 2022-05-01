@@ -4,6 +4,7 @@
 #include "layout.h"
 #include "disk.h"
 #include "error.h"
+#include "superblock.h"
 #include "log_types.h"
 #include <stdio.h>
 #include <string.h>
@@ -29,7 +30,7 @@ int bitmap_init(void)
         if(0 != sha256_validate(p, &sb.hash[SB_KEY_IDX(bid)])){
             char buf[51] = {0};
             snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
-            elog(LOG_FATAL, buf, (uint32_t)strlen(buf));
+            panic(buf);
             return 1;
         }
     }
@@ -80,9 +81,11 @@ uint32_t dbm_alloc(void)
     uint32_t wid = dbm_first_empty_word % BITMAP_WORD_PER_BLOCK;
 
     for(; bid >= BITMAP_START; bid--, wid = 0){
+        sb_lock();
         block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
                                             &sb.aes_key[SB_KEY_IDX(bid)],
                                             &sb.hash[SB_KEY_IDX(bid)]);
+        sb_unlock();
         if(bp == NULL){
             panic("bitmap: cannot get bitmap block");
             return 0;
@@ -123,9 +126,11 @@ int dbm_free(uint32_t did)
 
     uint32_t bid = BITMAP_DID2BID(did);
 
+    sb_lock();
     block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
                                         &sb.aes_key[SB_KEY_IDX(bid)],
                                         &sb.hash[SB_KEY_IDX(bid)]);
+    sb_unlock();
     if(bp == NULL){
         panic("bitmap: cannot get bitmap block");
         return 0;

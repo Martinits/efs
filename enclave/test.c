@@ -4,5 +4,5 @@
 
 int ecall_efs_test(void)
 {
-    return efs_init(NULL, NULL, NULL);
+    return efs_init(NULL, NULL, NULL, BACKEND_TP_FILE);
 }

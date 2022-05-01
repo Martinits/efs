@@ -3,7 +3,16 @@
 #include "layout.h"
 #include <pthread.h>
 
-pthread_mutex_t  disk_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t disk_lock = PTHREAD_MUTEX_INITIALIZER;
+
+int disk_init(int backend_type)
+{
+    int retval;
+    if(SGX_SUCCESS != ocall_disk_init(&retval, backend_type) || retval != 0)
+        return 1;
+
+    return 0;
+}
 
 int disk_read(uint8_t *buf, uint32_t bid)
 {

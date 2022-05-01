@@ -7,8 +7,11 @@
 #include <pthread.h>
 #include "log.h"
 #include "log_types.h"
+#include "efs_common.h"
 
 pthread_spinlock_t log_lock;
+
+FILE *backend_fp = NULL;
 
 static void log_lock_unlock(bool lock, void *udata)
 {
@@ -20,11 +23,24 @@ static void log_lock_unlock(bool lock, void *udata)
         pthread_spin_unlock(&log_lock);
 }
 
-int ocall_init(void)
+int ocall_disk_init(int backend_type)
 {
     if(0 != pthread_spin_init(&log_lock, PTHREAD_PROCESS_PRIVATE))
         return 1;
     log_set_lock(log_lock_unlock, NULL);
+
+    // prepare back end
+    switch(backend_type){
+        case BACKEND_TP_FILE: {
+            backend_fp = fopen(BACKEND_FILE_NAME, "a+");
+            if(!backend_fp) return 1;
+        }
+        case BACKEND_TP_DISK: {
+            //todo
+        }
+        default: return 1;
+    }
+
     return 0;
 }
 

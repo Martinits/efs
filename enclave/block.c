@@ -195,7 +195,7 @@ error:
 int block_init(void)
 {
     pd_wb_lk = (typeof(pd_wb_lk))PTHREAD_MUTEX_INITIALIZER;
-    return bitmap_init() || cache_init(&bcac, bcache_cb_write) || map_init(&pd_wb);
+    return cache_init(&bcac, bcache_cb_write) || map_init(&pd_wb);
 }
 
 static block_t *get_block_from_disk(uint32_t bid, uint16_t type,

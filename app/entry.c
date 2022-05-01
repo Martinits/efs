@@ -39,9 +39,6 @@ int SGX_CDECL main(int argc, char *argv[])
     char buffer[max_buf_len];
     memset(buffer, 0, sizeof(buffer));
 
-    if(0 != ocall_init())
-        return -1;
-
     if(initialize_enclave() < 0){
         printf("Enter a character before exit ...\n");
         getchar();

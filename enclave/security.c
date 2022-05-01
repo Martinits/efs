@@ -81,7 +81,7 @@ int aes128_block_decrypt(const key128_t *iv, const key128_t *key, uint8_t *data)
     return 0;
 }
 
-int sha256_block(const uint8_t *data, key256_t *hash)
+static int sha256_calc(const uint8_t *data, uint32_t size, key256_t *hash)
 {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 
@@ -90,7 +90,7 @@ int sha256_block(const uint8_t *data, key256_t *hash)
     if(1 != EVP_DigestInit_ex(ctx, EVP_sha256(), NULL))
         return 1;
 
-    if(1 != EVP_DigestUpdate(ctx, data, BLK_SZ))
+    if(1 != EVP_DigestUpdate(ctx, data, size))
         return 1;
 
     uint len;
@@ -111,10 +111,27 @@ int sha256_block(const uint8_t *data, key256_t *hash)
     return 0;
 }
 
+int sha256_block(const uint8_t *data, key256_t *hash)
+{
+    return sha256_calc(data, BLK_SZ, hash);
+}
+
 int sha256_validate(const uint8_t *data, const key256_t *exp_hash)
 {
     key256_t hash;
     if(0 != sha256_block(data, &hash)) return 1;
+
+    for(ulong i = 0; i < sizeof(hash.k)/sizeof(hash.k[0]); i++){
+        if(hash.k[i] ^ exp_hash->k[i]) return 1;
+    }
+
+    return 0;
+}
+
+int sha256_sb_validate(const uint8_t *data, const key256_t *exp_hash)
+{
+    key256_t hash;
+    if(0 != sha256_calc(data, BLK_SZ * SUPERBLOCK_CNT, &hash)) return 1;
 
     for(ulong i = 0; i < sizeof(hash.k)/sizeof(hash.k[0]); i++){
         if(hash.k[i] ^ exp_hash->k[i]) return 1;

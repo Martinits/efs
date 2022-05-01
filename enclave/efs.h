@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "security.h"
+#include "efs_common.h"
 
 #define O_READONLY (0x00)
 #define O_WRITE    (0x01)
@@ -15,7 +16,7 @@
 
 typedef struct _file file;
 
-int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash);
+int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash, int backend_type);
 
 int efs_exit(const key128_t *iv, const key128_t *key, key256_t *hash);
 

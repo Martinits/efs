@@ -88,7 +88,7 @@ static int icache_cb_write(void *content, uint32_t iid, int dirty, int deleted)
 
 int inode_init(void)
 {
-    return block_init() || cache_init(&icac, icache_cb_write);
+    return cache_init(&icac, icache_cb_write);
 }
 
 static int inode_lock(inode_t *ip)
