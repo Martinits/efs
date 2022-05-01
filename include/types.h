@@ -12,8 +12,6 @@ typedef unsigned int uint32_t;
 typedef unsigned long ulong;
 typedef unsigned long uint64_t;
 
-typedef uint64_t size_t;
-
 #ifndef UINT8_MAX
     #define UINT8_MAX 0xffU
 #endif
@@ -28,6 +26,13 @@ typedef uint64_t size_t;
 
 #ifndef UINT64_MAX
     #define UINT64_MAX 0xffffffffffffffff
+#endif
+
+#undef NULL
+#if defined(__cplusplus)
+  #define NULL 0
+#else
+  #define NULL ((void *)0)
 #endif
 
 #endif

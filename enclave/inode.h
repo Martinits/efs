@@ -22,26 +22,24 @@ typedef struct {
 
 int inode_init(void);
 
-//int inode_lock(inode_t *ip);
-
-//int inode_unlock(inode_t *ip);
-
 inode_t *inode_get_file(const char *path, int alloc);
 
 inode_t *inode_get_dir(const char *path);
 
-int inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len);
+uint32_t inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len);
 
-int inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len);
+uint32_t inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len);
 
 int inode_mkdir(inode_t *ip, const char *name);
 
 int inode_rmdir(inode_t *ip, const char *name);
 
-int inode_mkfile(inode_t *ip, const char *name);
+// int inode_mkfile(inode_t *ip, const char *name);
 
 int inode_rmfile(inode_t *ip, const char* name);
 
 int inode_return(inode_t *ip);
+
+uint32_t inode_get_size(inode_t *ip);
 
 #endif

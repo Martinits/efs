@@ -3,6 +3,7 @@
 #include "sgx_trts.h"
 #include "layout.h"
 #include "enclave_t.h"
+#include "sgx_trts.h"
 #include <openssl/conf.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -125,4 +126,9 @@ int sha256_validate(const uint8_t *data, const key256_t *exp_hash)
 key256_t *zero_block_sha256(void)
 {
     return &zero_sha256;
+}
+
+int key128_gen(key128_t *key)
+{
+    return SGX_SUCCESS != sgx_read_rand((uchar *)&key->k, sizeof(key->k));
 }

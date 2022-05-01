@@ -532,7 +532,7 @@ inode_t *inode_get_dir(const char *path)
     return inode_get(path, INODE_TP_DIR, 0);
 }
 
-int inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len)
+uint32_t inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len)
 {
     if(ip == NULL) return 0;
 
@@ -547,7 +547,7 @@ int inode_read_file(inode_t *ip, uint8_t *to, uint32_t offset, uint32_t len)
     return ret;
 }
 
-int inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len)
+uint32_t inode_write_file(inode_t *ip, uint8_t *from, uint32_t offset, uint32_t len)
 {
     if(ip == NULL) return 0;
 
@@ -580,14 +580,14 @@ int inode_rmdir(inode_t *ip, const char *name)
     return ret;
 }
 
-int inode_mkfile(inode_t *ip, const char *name)
-{
-    inode_lock(ip);
-    uint16_t iid = inode_new(ip, name, INODE_TP_FILE);
-    inode_unlock(ip);
-
-    return iid == 0;
-}
+// int inode_mkfile(inode_t *ip, const char *name)
+// {
+//     inode_lock(ip);
+//     uint16_t iid = inode_new(ip, name, INODE_TP_FILE);
+//     inode_unlock(ip);
+// 
+//     return iid == 0;
+// }
 
 int inode_rmfile(inode_t *ip, const char* name)
 {
@@ -601,4 +601,13 @@ int inode_rmfile(inode_t *ip, const char* name)
 int inode_return(inode_t *ip)
 {
     return cache_return(&icac, ip->iid);
+}
+
+uint32_t inode_get_size(inode_t *ip)
+{
+    inode_lock(ip);
+    uint32_t ret = ip->size;
+    inode_unlock(ip);
+
+    return ret;
 }

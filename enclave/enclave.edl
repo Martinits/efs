@@ -4,8 +4,7 @@ enclave {
     from "sgx_tstdc.edl" import *;
 
     trusted {
-        public int ecall_efs_init();
-        public int ecall_efs_exit();
+        public int ecall_efs_test();
     };
 
     #define BLK_SZ 4096

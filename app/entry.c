@@ -49,7 +49,7 @@ int SGX_CDECL main(int argc, char *argv[])
     }
 
     int retval;
-    if(ecall_efs_init(global_eid, &retval) != SGX_SUCCESS || retval != 0)
+    if(ecall_efs_test(global_eid, &retval) != SGX_SUCCESS || retval != 0)
         printf("efs_init fail with %d\n", retval);
     else printf("efs_init ok\n");
 
