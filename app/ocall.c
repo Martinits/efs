@@ -11,6 +11,8 @@
 
 pthread_spinlock_t log_lock;
 
+uint8_t blk_zero[BLK_SZ] = {0};
+
 FILE *backend_fp = NULL;
 
 static void log_lock_unlock(bool lock, void *udata)
@@ -32,7 +34,7 @@ int ocall_disk_init(int backend_type)
     // prepare back end
     switch(backend_type){
         case BACKEND_TP_FILE: {
-            backend_fp = fopen(BACKEND_FILE_NAME, "a+");
+            backend_fp = fopen(BACKEND_FILE_NAME, "r+");
             if(!backend_fp) return 1;
             break;
         }
@@ -48,20 +50,29 @@ int ocall_disk_init(int backend_type)
 
 int ocall_disk_read(uint8_t *buf, uint32_t bid)
 {
-    // if not exist, augment disk to desired size and pad with 0
-    printf("bufread4096\n");
+    // if not exist, augment disk to desired size
+    if(0 != fseek(backend_fp, bid * BLK_SZ, SEEK_SET)) return 1;
+
+    if(1 == fread(buf, BLK_SZ, 1, backend_fp)) return 1;
+
+    if(1 != fwrite(blk_zero, BLK_SZ, 1, backend_fp)) return 1;
+
+    memset(buf, 0, BLK_SZ);
     return 0;
 }
 
 int ocall_disk_write(uint8_t *buf, uint32_t bid)
 {
-    printf("bufwrite4096\n");
-    return 0;
+    if(0 != fseek(backend_fp, bid * BLK_SZ, SEEK_SET)) return 1;
+
+    return 1 != fwrite(buf, BLK_SZ, 1, backend_fp);
 }
 
 int ocall_disk_setzero(uint32_t bid)
 {
-    // pad 0
+    if(0 != fseek(backend_fp, bid * BLK_SZ, SEEK_SET)) return 1;
+
+    return 1 != fwrite(blk_zero, BLK_SZ, 1, backend_fp);
 }
 
 int ocall_log(int log_type, char *msg, uint32_t len)
