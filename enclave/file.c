@@ -312,11 +312,13 @@ int file_exit(void)
 {
     set_destroy(&pathset);
 
-    struct fset *p = fset_head.next;
+    struct fset *p = fset_head.next, *tmp;
 
     while(p){
         fclose(p->fp);
+        tmp = p;
         p = p->next;
+        free(tmp);
     }
 
     return 0;

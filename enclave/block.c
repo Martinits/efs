@@ -217,7 +217,7 @@ int pd_wb_insert(uint32_t bid)
 
 int pd_wb_delete(uint32_t bid)
 {
-    key256_t *tofree = NULL;
+    struct pd_wb_node *tofree = NULL;
     if(0 != map_delete(&pd_wb, bid, (void **)&tofree))
         free(tofree);
 
