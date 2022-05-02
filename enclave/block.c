@@ -16,62 +16,10 @@
 extern superblock_t sb;
 
 cache_t bcac;
-struct map pd_wb;
-pthread_mutex_t pd_wb_lk;
 
-// static uint8_t *get_block_for_wb(uint32_t id, int *in_cache, const key128_t *aes_iv,
-//                                     const key128_t *aes_key, const key256_t *exp_hash)
-// {
-//     block_t *bp = cache_try_get(&bcac, bid);
-//     if(cache_is_in(&bcac, bid)){
-//         *in_cache = 1;
-// 
-//         if(bp == NULL) return NULL;
-// 
-//         return bp->data;
-// 
-//     }else{
-//         *in_cache = 0;
-// 
-//         uint8_t *data = (uint8_t *)malloc(BLK_SZ);
-// 
-//         if(0 != disk_read(data, bid))
-//             return NULL;
-// 
-//         if(0 != aes128_block_decrypt(aes_iv, aes_key, data))
-//             return NULL;
-// 
-//         if(0 != sha256_validate(data, exp_hash)){
-//             char buf[51] = {0};
-//             snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
-//             panic(buf);
-//         }
-// 
-//         return data;
-//     }
-// }
-// 
-// static int return_block_for_wb(uint32_t bid, uint8_t *data, int in_cache,
-//                                         const key128_t *aes_iv, const key128_t *aes_key,
-//                                         key256_t *hash)
-// {
-//     if(in_cache){
-//         cache_make_dirty(&bcac, bid);
-//         return cache_return(&bcac, bid);
-//     }else{
-//         if(0 != sha256_block(data, hash))
-//             return 1;
-// 
-//         if(0 != aes128_block_encrypt(aes_iv, aes_key, data))
-//             return 1;
-// 
-//         if(0 != disk_write(data, bid))
-//             return 1;
-// 
-//         free(data);
-//         return 0;
-//     }
-// }
+struct map pd_wb;
+pthread_mutex_t pd_wb_lk = PTHREAD_MUTEX_INITIALIZER;
+
 
 // not holding cache lock now
 // no need to lock block because refcnt == 0 so no other is holding it
@@ -101,12 +49,13 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
             return 1;
         }
 
-        sb_lock();
-        if(0 != sha256_block(bp->data, SB_HASH_PTR(bid))){
-            sb_unlock();
-            return 1;
-        }
-        sb_unlock();
+        // no need to update hash in sb
+        // sb_lock();
+        // if(0 != sha256_block(bp->data, SB_HASH_PTR(bid))){
+        //     sb_unlock();
+        //     return 1;
+        // }
+        // sb_unlock();
 
     }else{
         if(bp->type != BLK_TP_DATA){
@@ -116,66 +65,16 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 
         pd_wb_lock();
 
-        key256_t *hash = (key256_t *)map_search(&pd_wb, bid);
-        if(hash == NULL){
-            hash = (key256_t *)malloc(sizeof(key256_t));
-            if(hash == NULL) goto error;
-
-            if(0 != map_insert(&pd_wb, bid, hash)) goto error;
+        struct pd_wb_node *node = pd_wb_find(bid);
+        if(node == NULL){
+            if(0 != pd_wb_insert(bid)) goto error;
         }
 
-        if(0 != sha256_block(bp->data, hash)) goto error;
+        if(0 != sha256_block(bp->data, &node->hash)) goto error;
+
+        memcpy(&node->hashidx, bp->hashidx, sizeof(bp->hashidx));
 
         pd_wb_unlock();
-
-        // int i = 3;
-        // while(bp->hashidx[i].bid == 0) i--;
-
-        // int in_cache[i+1];
-        // uint32_t ibid = INODE_IID2BID(bp->hashidx[0].iid);
-
-        // sb_lock();
-        // uint8_t *idata = get_inode_for_wb(bp->hashidx[0].iid, in_cache, SB_IV_PTR(ibid),
-        //                                     SB_KEY_PTR(ibid), SB_HASH_PTR(ibid));
-        // sb_unlock();
-
-        // dinode_t *dip = (dinode_t *)(idata + INODE_BLOCK_OFFSET(bp->hashidx[0].iid));
-
-        // uint8_t *ddata[i+1];
-        // memset(ddata, 0, sizeof(ddata));
-        // index_t *idx[i+1];
-        // memset(idx, 0, sizeof(idx));
-
-        // for(int j = 1; j <= i; j++){
-        //     ddata[j] = get_block_for_wb(bp->hashidx[j].bid, in_cache + j,
-        //                                 &dip->aes_iv, &dip->aes_key,
-        //                                 j == 1 ? (&dip->hash[bp->hashidx[0].idx]) : (&idx[j-1]->hash));
-        //     idx[j] = (index_t *)(ddata[j] + sizeof(index_t) * bp->hashidx[j].idx);
-        // }
-
-        // if(0 != sha256_block(bp->data, &idx[i]->hash))
-        //     return 1;
-
-        // if(0 != aes128_block_encrypt(&dip->aes_iv, &dip->aes_key, bp->data))
-        //     return 1;
-
-        // if(0 != disk_write(bp->data, bid))
-        //     return 1;
-
-        // for(; i > 0; i--)
-        //     if(0 != return_block_for_wb(bp->hashidx[i].bid, ddata[i], in_cache[i],
-        //                                 &dip->aes_iv, &dip->aes_key,
-        //                                 i == 1 ? (&dip->hash[bp->hashidx[0].idx]) : (&idx[i-1]->hash)))
-        //         return 1;
-
-        // // hashidx[0] i.e. inode
-        // sb_lock();
-        // if(0 != return_block_for_wb(ibid, idata, in_cache[0], SB_IV_PTR(ibid),
-        //                             SB_KEY_PTR(ibid), SB_HASH_PTR(ibid))){
-        //     sb_unlock();
-        //     return 1;
-        // }
-        // sb_unlock();
     }
 
     if(0 != aes128_block_encrypt(&bp->aes_iv, &bp->aes_key, bp->data))
@@ -194,12 +93,11 @@ error:
 
 int block_init(void)
 {
-    pd_wb_lk = (typeof(pd_wb_lk))PTHREAD_MUTEX_INITIALIZER;
     return cache_init(&bcac, bcache_cb_write) || map_init(&pd_wb);
 }
 
 static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
-                                    /*const hashidx_t hashidx[4],*/ const key128_t *iv,
+                                    const hashidx_t hashidx[4], const key128_t *iv,
                                     const key128_t *key, const key256_t *exp_hash)
 {
     block_t *bp = (block_t *)malloc(sizeof(block_t));
@@ -218,10 +116,10 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
 
     bp->bid = bid;
     bp->type = type;
-    /*if(type == BLK_TP_DATA){*/
-        /*if(hashidx == NULL) goto error;*/
-        /*memcpy(bp->hashidx, hashidx, sizeof(hashidx[0])*4);*/
-    /*}*/
+    if(type == BLK_TP_DATA){
+        if(hashidx == NULL) goto error;
+        memcpy(bp->hashidx, hashidx, sizeof(hashidx[0])*4);
+    }
     memcpy(&bp->aes_iv, iv, sizeof(key128_t));
     memcpy(&bp->aes_key, key, sizeof(key128_t));
 
@@ -242,7 +140,7 @@ int block_unlock(uint32_t bid)
     return cache_node_unlock(&bcac, bid);
 }
 
-block_t *bget_from_cache_lock(uint32_t bid, const key128_t *iv,
+block_t *bget_from_cache_lock(uint32_t bid, const hashidx_t hashidx[4], const key128_t *iv,
                                 const key128_t *key, const key256_t *exp_hash)
 {
     block_t *ret = cache_try_get(&bcac, bid, 1);
@@ -268,11 +166,11 @@ block_t *bget_from_cache_lock(uint32_t bid, const key128_t *iv,
     if(!(*bpp)){
         if(type == BLK_TP_INODE || type == BLK_TP_BITMAP){
             sb_lock();
-            *bpp = get_block_from_disk(bid, type, /*NULL,*/ SB_IV_PTR(bid),
+            *bpp = get_block_from_disk(bid, type, NULL, SB_IV_PTR(bid),
                                         SB_KEY_PTR(bid), SB_HASH_PTR(bid));
             sb_unlock();
         }else{
-            *bpp = get_block_from_disk(bid, type, /*hashidx,*/ iv, key, exp_hash);
+            *bpp = get_block_from_disk(bid, type, hashidx, iv, key, exp_hash);
             return *bpp;
         }
     }
@@ -305,16 +203,16 @@ int pd_wb_unlock(void)
     return pthread_mutex_unlock(&pd_wb_lk);
 }
 
-key256_t *pd_wb_find(uint32_t bid)
+struct pd_wb_node *pd_wb_find(uint32_t bid)
 {
     return map_search(&pd_wb, bid);
 }
 
-int pd_wb_insert(uint32_t bid, const key256_t *hash)
+int pd_wb_insert(uint32_t bid)
 {
-    key256_t *new_hash = (key256_t *)malloc(sizeof(key256_t));
-    memcpy(new_hash, hash, sizeof(key256_t));
-    return map_insert(&pd_wb, bid, new_hash);
+    struct pd_wb_node *node = (struct pd_wb_node *)malloc(sizeof(struct pd_wb_node));
+
+    return map_insert(&pd_wb, bid, node);
 }
 
 int pd_wb_delete(uint32_t bid)
@@ -380,3 +278,63 @@ void breturn_raw(uint32_t bid, int in_cache, uint8_t *data)
     return;
 }
 
+static int bget_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const key128_t *key)
+{
+    if(0 != disk_read(data, bid)) return 1;
+
+    if(0 != aes128_block_decrypt(iv, key, data)) return 1;
+
+    return 0;
+}
+
+static void breturn_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const key128_t *key)
+{
+    if(0 != aes128_block_encrypt(iv, key, data)) return;
+
+    disk_write(data, bid);
+}
+
+int block_exit(void)
+{
+    cache_exit(&bcac);
+
+    uint32_t id;
+    struct pd_wb_node *node = NULL;
+    key256_t hash;
+    uint8_t data[BLK_SZ] = {0}, idata[BLK_SZ] = {0};
+
+    sb_lock();
+
+    while((node = map_clear_iter(&pd_wb, &id))){
+        // update hash according to hashidx
+        uint32_t ibid = INODE_IID2BID(node->hashidx[0].iid);
+        if(0 != bget_simple(ibid, idata, SB_IV_PTR(ibid), SB_KEY_PTR(ibid)))
+            continue;
+        dinode_t *dip = (dinode_t *)(idata + INODE_BLOCK_OFFSET(node->hashidx[0].iid));
+
+        memcpy(&hash, &node->hash, sizeof(key256_t));
+        for(int i = 3; i > 0; i--){
+            if(0 != bget_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key))
+                continue;
+
+            index_t *idxp = (index_t *)(data + node->hashidx[i].idx * sizeof(index_t));
+            memcpy(&idxp->hash, &hash, sizeof(key256_t));
+
+            sha256_block(data, &hash);
+
+            breturn_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key);
+        }
+
+        memcpy(&dip->hash[node->hashidx[0].idx], &hash, sizeof(key256_t));
+        breturn_simple(ibid, idata, SB_IV_PTR(ibid), SB_KEY_PTR(ibid));
+        // no need to update hash in sb
+
+        free(node);
+    }
+
+    sb_unlock();
+
+    map_exit(&pd_wb);
+
+    return 0;
+}

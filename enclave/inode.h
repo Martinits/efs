@@ -42,4 +42,6 @@ int inode_return(inode_t *ip);
 
 uint32_t inode_get_size(inode_t *ip);
 
+int inode_exit(void);
+
 #endif

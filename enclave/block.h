@@ -24,10 +24,15 @@ typedef struct {
 typedef struct {
     uint16_t type;
     uint32_t bid;
-    //hashidx_t hashidx[4];
+    hashidx_t hashidx[4];
     key128_t aes_iv, aes_key;
     uint8_t data[BLK_SZ];
 } block_t;
+
+struct pd_wb_node {
+    hashidx_t hashidx[4];
+    key256_t hash;
+};
 
 int block_init(void);
 
@@ -35,7 +40,7 @@ int block_lock(uint32_t bid);
 
 int block_unlock(uint32_t bid);
 
-block_t *bget_from_cache_lock(uint32_t bid, /*const hashidx_t hashidx[4],*/ const key128_t *iv,
+block_t *bget_from_cache_lock(uint32_t bid, const hashidx_t hashidx[4], const key128_t *iv,
                                 const key128_t *key, const key256_t *exp_hash);
 
 int breturn_to_cache(uint32_t bid);
@@ -48,9 +53,9 @@ int pd_wb_lock(void);
 
 int pd_wb_unlock(void);
 
-key256_t *pd_wb_find(uint32_t bid);
+struct pd_wb_node *pd_wb_find(uint32_t bid);
 
-int pd_wb_insert(uint32_t bid, const key256_t *hash);
+int pd_wb_insert(uint32_t bid);
 
 int pd_wb_delete(uint32_t bid);
 
@@ -61,5 +66,7 @@ int block_free(uint32_t bid, int setzero);
 uint8_t *bget_raw(uint32_t bid, const key128_t *iv, const key128_t *key, int *in_cache);
 
 void breturn_raw(uint32_t bid, int in_cache, uint8_t *data);
+
+int block_exit(void);
 
 #endif

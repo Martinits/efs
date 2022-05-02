@@ -16,4 +16,8 @@ void *map_search(struct map *mp, uint32_t id);
 
 int map_delete(struct map *mp, uint32_t id, void **tofree);
 
+void *map_clear_iter(struct map *mp, uint32_t *id);
+
+int map_exit(struct map *mp);
+
 #endif

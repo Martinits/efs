@@ -22,5 +22,7 @@ enclave {
         int ocall_log(int log_type, [in, size = len] char *msg, uint32_t len);
 
         void ocall_panic(int exitcode);
+
+        int ocall_disk_exit();
     };
 };

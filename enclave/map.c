@@ -93,3 +93,47 @@ int map_delete(struct map *mp, uint32_t id, void **tofree)
     rb_free(result);
     return 0;
 }
+
+void *map_clear_iter(struct map *mp, uint32_t *id)
+{
+    static struct rb_node *p = NULL;
+
+    if(!p) p = rb_first(&mp->tree_root);
+    else p = rb_next(p);
+
+    if(!p) return NULL;
+
+    struct treenode *t = container_of(p, struct treenode, node);
+
+    *id = t->id;
+    return t->data;
+}
+
+typedef struct _tmpnode_t {
+    struct treenode *t;
+    struct _tmpnode_t *next;
+} tmpnode_t;
+
+int map_exit(struct map *mp)
+{
+    tmpnode_t *tmphead = NULL, *tmpp;
+    struct rb_node *p = NULL;
+    struct treenode *t = NULL;
+
+    for(p = rb_first(&mp->tree_root); p; p = rb_next(p)){
+        t = container_of(p, struct treenode, node);
+        tmpnode_t *tmp = (tmpnode_t *)malloc(sizeof(tmpnode_t));
+        tmp->t = t;
+        tmp->next = tmphead;
+        tmphead->next = tmp;
+    }
+
+    while(tmphead){
+        tmpp = tmphead;
+        tmphead = tmphead->next;
+        free(tmpp->t);
+        free(tmpp);
+    }
+
+    return 0;
+}

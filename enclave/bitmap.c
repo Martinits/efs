@@ -23,7 +23,7 @@ int bitmap_init(void)
 
         if(0 != disk_read(p, bid)) return 1;
 
-        if(0 != aes128_block_encrypt(&sb.aes_iv[SB_KEY_IDX(bid)],
+        if(0 != aes128_block_decrypt(&sb.aes_iv[SB_KEY_IDX(bid)],
                                         &sb.aes_key[SB_KEY_IDX(bid)], p))
             return 1;
 
@@ -82,7 +82,7 @@ uint32_t dbm_alloc(void)
 
     for(; bid >= BITMAP_START; bid--, wid = 0){
         sb_lock();
-        block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
+        block_t *bp = bget_from_cache_lock(bid, NULL, &sb.aes_iv[SB_KEY_IDX(bid)],
                                             &sb.aes_key[SB_KEY_IDX(bid)],
                                             &sb.hash[SB_KEY_IDX(bid)]);
         sb_unlock();
@@ -109,6 +109,9 @@ uint32_t dbm_alloc(void)
 
             block_make_dirty(bp->bid);
             block_unlock_return(bp);
+
+            if(sb.nblock < DID2BID(ret)) sb.nblock = DID2BID(ret);
+
             return ret;
         }
 
@@ -127,7 +130,7 @@ int dbm_free(uint32_t did)
     uint32_t bid = BITMAP_DID2BID(did);
 
     sb_lock();
-    block_t *bp = bget_from_cache_lock(bid, /*NULL,*/ &sb.aes_iv[SB_KEY_IDX(bid)],
+    block_t *bp = bget_from_cache_lock(bid, NULL, &sb.aes_iv[SB_KEY_IDX(bid)],
                                         &sb.aes_key[SB_KEY_IDX(bid)],
                                         &sb.hash[SB_KEY_IDX(bid)]);
     sb_unlock();
@@ -147,5 +150,17 @@ int dbm_free(uint32_t did)
 int bitmap_exit()
 {
     // write back ibm
+    // no need update hash in sb
+    for(uint32_t i = 0; i < INODE_BITMAP_CNT; i++){
+        uint32_t bid = i + INODE_BITMAP_START;
+        uint8_t *p = ibm + i * BLK_SZ;
+
+        if(0 != aes128_block_encrypt(&sb.aes_iv[SB_KEY_IDX(bid)],
+                                        &sb.aes_key[SB_KEY_IDX(bid)], p))
+            return 1;
+
+        if(0 != disk_write(p, bid)) continue;
+    }
+
     return 0;
 }

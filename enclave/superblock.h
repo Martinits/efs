@@ -10,7 +10,7 @@ int sb_lock(void);
 
 int sb_unlock(void);
 
-int sb_exit(void);
+int sb_exit(const key128_t *iv, const key128_t *key, key256_t *hash);
 
 #endif
 

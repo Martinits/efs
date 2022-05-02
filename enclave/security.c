@@ -128,6 +128,11 @@ int sha256_validate(const uint8_t *data, const key256_t *exp_hash)
     return 0;
 }
 
+int sha256_sb(const uint8_t *data, key256_t *hash)
+{
+    return sha256_calc(data, BLK_SZ * SUPERBLOCK_CNT, hash);
+}
+
 int sha256_sb_validate(const uint8_t *data, const key256_t *exp_hash)
 {
     key256_t hash;
@@ -148,4 +153,9 @@ key256_t *zero_block_sha256(void)
 int key128_gen(key128_t *key)
 {
     return SGX_SUCCESS != sgx_read_rand((uchar *)&key->k, sizeof(key->k));
+}
+
+int security_exit(void)
+{
+    return 0;
 }

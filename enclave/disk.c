@@ -54,5 +54,13 @@ int disk_setzero(uint32_t bid)
 
     pthread_mutex_unlock(&disk_lock);
     return 0;
+}
 
+int disk_exit(void)
+{
+    int retval;
+    if(SGX_SUCCESS != ocall_disk_exit(&retval) || retval != 0)
+        return 1;
+
+    return 0;
 }

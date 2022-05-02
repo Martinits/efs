@@ -34,9 +34,11 @@ int ocall_disk_init(int backend_type)
         case BACKEND_TP_FILE: {
             backend_fp = fopen(BACKEND_FILE_NAME, "a+");
             if(!backend_fp) return 1;
+            break;
         }
         case BACKEND_TP_DISK: {
             //todo
+            break;
         }
         default: return 1;
     }
@@ -90,4 +92,11 @@ void ocall_panic(int exitcode)
     }else{
         fprintf(stdout, "Cannot destroy enclave %ld\n", global_eid);
     }
+}
+
+int ocall_disk_exit(void)
+{
+    fclose(backend_fp);
+
+    return 0;
 }

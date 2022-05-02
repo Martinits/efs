@@ -36,4 +36,6 @@ int queue_move_to_head(struct queue *q, struct list *node, void **drop);
 
 struct list *queue_search(struct queue *q, uint32_t id);
 
+int queue_exit(struct queue *q);
+
 #endif

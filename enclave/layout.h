@@ -80,14 +80,14 @@ typedef struct {
 typedef struct {
     uint32_t magic;
     uint32_t nblock;
-    uint32_t ibitmap_start;
-    uint32_t nibitmap;
-    uint32_t inode_start;
-    uint32_t ninode;
-    uint32_t dbitmap_start;
-    uint32_t ndbitmap;
-    uint32_t data_start;
-    uint32_t ndata;
+    // uint32_t ibitmap_start;
+    // uint32_t nibitmap;
+    // uint32_t inode_start;
+    // uint32_t ninode;
+    // uint32_t dbitmap_start;
+    // uint32_t ndbitmap;
+    // uint32_t data_start;
+    // uint32_t ndata;
     uint16_t rootinode; // always 0
     key128_t aes_key[SB_KEY_CNT];
     key128_t aes_iv[SB_KEY_CNT];

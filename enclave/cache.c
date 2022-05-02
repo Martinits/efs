@@ -195,3 +195,27 @@ int cache_unlock_return(cache_t *cac, uint32_t id)
 
     return 0;
 }
+
+int cache_exit(cache_t *cac)
+{
+    struct list *p;
+
+    //free fifo
+    p = cac->fifo.head.next;
+    while(p){
+        node_free(cac->content_cb_write, p);
+        p = p->next;
+    }
+
+    //free lru
+    p = cac->lru.head.next;
+    while(p){
+        node_free(cac->content_cb_write, p);
+        p = p->next;
+    }
+
+    queue_exit(&cac->fifo);
+    queue_exit(&cac->lru);
+
+    return 0;
+}

@@ -28,6 +28,19 @@ int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash, 
 
 int efs_exit(const key128_t *iv, const key128_t *key, key256_t *hash)
 {
+    if(0 != file_exit()) return 1;
+
+    if(0 != inode_exit()) return 1;
+
+    if(0 != block_exit()) return 1;
+
+    if(0 != bitmap_exit()) return 1;
+
+    if(0 != sb_exit(iv, key, hash)) return 1;
+
+    if(0 != security_exit()) return 1;
+
+    if(0 != disk_exit()) return 1;
 
     return 0;
 }

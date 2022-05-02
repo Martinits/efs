@@ -8,13 +8,18 @@
 #include <pthread.h>
 #include <ctype.h>
 
-set_t fset;
+struct fset {
+    file *fp;
+    struct fset *next;
+} fset_head;
+
+set_t pathset;
 pthread_mutex_t fset_lk = PTHREAD_MUTEX_INITIALIZER;
 
 int file_init(void)
 {
-    set_init(&fset);
-    return 0;
+    fset_head.next = NULL;
+    return set_init(&pathset);
 }
 
 static int fset_lock(void)
@@ -25,6 +30,34 @@ static int fset_lock(void)
 static int fset_unlock(void)
 {
     return pthread_mutex_unlock(&fset_lk);
+}
+
+static int fset_insert(file *fp)
+{
+    struct fset *node = (struct fset *)malloc(sizeof(struct fset));
+    node->fp = fp;
+    node->next = fset_head.next;
+    fset_head.next = node;
+
+    return set_add(&pathset, fp->path);
+}
+
+static int fset_delete(file *fp)
+{
+    struct fset *p = &fset_head;
+    while(p->next && p->next->fp != fp) p = p->next;
+    if(p->next){
+        struct fset *tmp = p->next;
+        p->next = tmp->next;
+        free(tmp);
+    }
+
+    return set_remove(&pathset, fp->path);
+}
+
+static int fset_contains(const char *path)
+{
+    return SET_TRUE != set_contains(&pathset, path);
 }
 
 static int file_lock(file *fp)
@@ -81,7 +114,7 @@ file *fopen(const char *filename, int flags)
 
     fset_lock();
 
-    if(set_contains(&fset, filename) == SET_TRUE)
+    if(fset_contains(filename))
         goto error;
 
     uint64_t pathlen = strlen(filename);
@@ -111,7 +144,7 @@ file *fopen(const char *filename, int flags)
         fp->offset = 0;
     }
 
-    set_add(&fset, filename);
+    if(0 != fset_insert(fp)) goto error;
     fset_unlock();
     return fp;
 
@@ -124,12 +157,12 @@ int fclose(file *fp)
 {
     fset_lock();
 
-    if(set_contains(&fset, fp->path) != SET_TRUE){
+    if(fset_contains(fp->path)){
         fset_unlock();
         return 1;
     }
 
-    set_remove(&fset, fp->path);
+    fset_delete(fp);
     fset_lock();
 
     file_lock(fp);
@@ -277,5 +310,14 @@ int rmfile(const char *path)
 
 int file_exit(void)
 {
+    set_destroy(&pathset);
 
+    struct fset *p = fset_head.next;
+
+    while(p){
+        fclose(p->fp);
+        p = p->next;
+    }
+
+    return 0;
 }

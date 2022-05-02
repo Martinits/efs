@@ -39,4 +39,6 @@ int cache_node_unlock(cache_t *cac, uint32_t id);
 
 int cache_unlock_return(cache_t *cac, uint32_t id);
 
+int cache_exit(cache_t *cac);
+
 #endif

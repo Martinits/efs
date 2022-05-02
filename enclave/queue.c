@@ -66,3 +66,8 @@ struct list *queue_search(struct queue *q, uint32_t id)
 
     return map_search(&q->mp, id);
 }
+
+int queue_exit(struct queue *q)
+{
+    return map_exit(&q->mp);
+}
