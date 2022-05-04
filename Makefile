@@ -211,6 +211,8 @@ enclave/%.o: enclave/%.c enclave/enclave_t.h
 	$(CC) $(SGX_COMMON_CFLAGS) $(ENCLAVE_CFLAGS) -c $< -o $@
 
 $(ENCLAVE_NAME): enclave/enclave_t.o $(ENCLAVE_C_OBJS)
+	$(CC) -Iinclude -Ienclave -Wall mkfs/mkfs.c -lcrypto -g -o mkfs/mkfs
+	./mkfs/mkfs
 	$(CC) $^ -o $@ $(ENCLAVE_LINK_FLAGS)
 
 $(SIGNED_ENCLAVE_NAME): $(ENCLAVE_NAME)

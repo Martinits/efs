@@ -2,7 +2,7 @@
 .*
 !.gitignore
 *.json
-efs
+efs*
 *.so
 enclave_t.c
 enclave_t.h

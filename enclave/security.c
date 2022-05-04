@@ -1,6 +1,5 @@
 #include "types.h"
 #include "security.h"
-#include "sgx_trts.h"
 #include "layout.h"
 #include "enclave_t.h"
 #include "sgx_trts.h"
