@@ -5,8 +5,8 @@
 #include "inode.h"
 #include <pthread.h>
 
-#define O_READONLY (0x00)
-#define O_WRITE    (0x01)
+#define O_RDONLY  (0x00)
+#define O_RDWR    (0x01)
 #define O_CREATE   (0x02)
 #define O_APPEND   (0x04)
 

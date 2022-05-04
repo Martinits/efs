@@ -128,7 +128,7 @@ file *fopen(const char *filename, int flags)
     fp->lock = (typeof(fp->lock))PTHREAD_MUTEX_INITIALIZER;
 
     //parsing flags
-    if(flags & O_WRITE){
+    if(flags & O_RDWR){
         fp->writable = 1;
 
         fp->ip = inode_get_file(filename, flags & O_CREATE);
@@ -315,7 +315,9 @@ int file_exit(void)
     struct fset *p = fset_head.next, *tmp;
 
     while(p){
-        fclose(p->fp);
+        file_lock(p->fp);
+        if(0 != inode_return(p->fp->ip)) return 1;
+        free(p->fp);
         tmp = p;
         p = p->next;
         free(tmp);

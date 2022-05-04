@@ -10,4 +10,14 @@
 
 #define BACKEND_FILE_NAME ("efsdata")
 
+#include "types.h"
+
+typedef struct {
+    uchar k[16];
+} key128_t;
+
+typedef struct {
+    uchar k[32];
+} key256_t;
+
 #endif

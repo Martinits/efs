@@ -317,7 +317,7 @@ int block_exit(void)
             if(0 != bget_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key))
                 continue;
 
-            index_t *idxp = (index_t *)(data + node->hashidx[i].idx * sizeof(index_t));
+            index_t *idxp = (index_t *)(data) + node->hashidx[i].idx;
             memcpy(&idxp->hash, &hash, sizeof(key256_t));
 
             sha256_block(data, &hash);

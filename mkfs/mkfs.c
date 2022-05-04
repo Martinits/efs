@@ -8,9 +8,7 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <time.h>
-
-#define EFS_DISK_NAME ("efsdisk")
-#define EFS_IKH ("efsikh")
+#include "test_common.h"
 
 key256_t zero_sha256, sb_hash;
 key128_t iv, key;
@@ -96,7 +94,6 @@ int sha256_sb(const uint8_t *data, key256_t *hash)
 
 int key128_gen(key128_t *key)
 {
-    srand(time(NULL));
     for(int i = 0; i < sizeof(key->k)/sizeof(key->k[0]); i++)
         key->k[i] = rand() % 256;
     return 0;
@@ -104,6 +101,8 @@ int key128_gen(key128_t *key)
 
 int main()
 {
+    srand(time(NULL));
+
     if(0 != key128_gen(&iv)) return 1;
     if(0 != key128_gen(&key)) return 1;
     FILE *fp = fopen(EFS_IKH, "w");

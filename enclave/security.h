@@ -2,14 +2,7 @@
 #define _SECURITY_H
 
 #include "types.h"
-
-typedef struct {
-    uchar k[16];
-} key128_t;
-
-typedef struct {
-    uchar k[32];
-} key256_t;
+#include "efs_common.h"
 
 int security_init(void);
 

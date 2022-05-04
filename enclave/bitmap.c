@@ -43,7 +43,7 @@ uint16_t ibm_alloc(void)
     pthread_mutex_lock(&ibm_lock);
 
     uint32_t ret = 0;
-    uint64_t *p = (uint64_t *)(ibm + sizeof(ibm) - sizeof(*p));
+    uint64_t *p = (uint64_t *)(ibm + sizeof(ibm)) - 1;
     int tmp;
 
     for(;(uint8_t *)p >= ibm; p--, ret += sizeof(*p) * 8){

@@ -179,7 +179,7 @@ static void index_lookup_one_level(index_t *idxp, inode_t *ip, uint32_t bid,
                                 &ip->aes_iv, &ip->aes_key, exp_hash);
     if(bp == NULL) return;
 
-    index_t *idxp_tmp = (index_t *)(bp->data + bidx * sizeof(index_t));
+    index_t *idxp_tmp = (index_t *)(bp->data) + bidx;
 
     if(write && idxp_tmp->bid == 0){
         idxp_tmp->bid = block_alloc();
