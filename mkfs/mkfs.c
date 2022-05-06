@@ -191,5 +191,14 @@ int main()
     if(1 != fwrite(&sb_hash, sizeof(key256_t), 1, fp)) return 1;
     if(0 != fclose(fp)) return 1;
 
+    printf("\niv: \n");
+    for(int i=0;i < 16; i++) printf("%02x ", iv.k[i]);
+
+    printf("\nkey: \n");
+    for(int i=0;i < 16; i++) printf("%02x ", key.k[i]);
+
+    printf("\nhash: \n");
+    for(int i=0;i<32;i++) printf("%02x ", sb_hash.k[i]);
+    puts("");
     return 0;
 }

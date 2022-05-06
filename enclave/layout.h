@@ -47,9 +47,9 @@ typedef struct {
                             i + 1;            \
                         })
 
-#define BLK_SZ (4096U)
-#define BLK_SZ_BITS (12U)
-#define DISK_OFFSET(bid) (bid << BLK_SZ_BITS)
+// #define BLK_SZ (4096U)
+// #define BLK_SZ_BITS (12U)
+// #define DISK_OFFSET(bid) (bid << BLK_SZ_BITS)
 
 #define SUPERBLOCK_START (0)
 #define SUPERBLOCK_CNT (uint32_t)((sizeof(superblock_t) >> BLK_SZ_BITS) + 1)

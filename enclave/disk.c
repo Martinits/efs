@@ -5,10 +5,10 @@
 
 pthread_mutex_t disk_lock = PTHREAD_MUTEX_INITIALIZER;
 
-int disk_init(int backend_type)
+int disk_init(int backend_type, uint8_t *zero_encrypted)
 {
     int retval;
-    if(SGX_SUCCESS != ocall_disk_init(&retval, backend_type) || retval != 0)
+    if(SGX_SUCCESS != ocall_disk_init(&retval, backend_type, zero_encrypted) || retval != 0)
         return 1;
 
     return 0;

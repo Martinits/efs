@@ -9,11 +9,11 @@
 #include <string.h>
 
 key256_t zero_sha256;
+uint8_t zero_encrypted[BLK_SZ] = {0};
 
-int security_init(void)
+int security_init(const key128_t * iv, const key128_t *key)
 {
-    uint8_t tmp[BLK_SZ] = {0};
-    return sha256_block(tmp, &zero_sha256);
+    return sha256_block(zero_encrypted, &zero_sha256) || aes128_block_encrypt(iv, key, zero_encrypted);
 }
 
 int aes128_block_encrypt(const key128_t *iv, const key128_t *key, uint8_t *data)

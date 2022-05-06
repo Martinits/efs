@@ -4,7 +4,7 @@
 #include "types.h"
 #include "efs_common.h"
 
-int security_init(void);
+int security_init(const key128_t * iv, const key128_t *key);
 
 int aes128_block_encrypt(const key128_t *iv, const key128_t *key, uint8_t *data);
 

@@ -8,7 +8,7 @@
 #define BACKEND_TP_FILE (0)
 #define BACKEND_TP_DISK (1)
 
-#define BACKEND_FILE_NAME ("efsdata")
+#define EFS_DISK_NAME ("efsdisk")
 
 #include "types.h"
 

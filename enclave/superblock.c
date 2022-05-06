@@ -37,10 +37,10 @@ int sb_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash)
         if(0 != disk_read(data, bid))
             return 1;
 
-        if(0 != aes128_block_decrypt(iv, key, data))
+        if(0 != aes128_block_decrypt(SB_IV_PTR(bid), SB_KEY_PTR(bid), data))
             return 1;
 
-        if(0 != sha256_sb_validate(data, exp_hash)){
+        if(0 != sha256_validate(data, SB_HASH_PTR(bid))){
             char buf[51] = {0};
             snprintf(buf, 50, "block hash validation failed during init, bid = %d", bid);
             panic(buf);

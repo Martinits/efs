@@ -11,7 +11,7 @@ enclave {
     untrusted {
         include "../include/types.h"
 
-        int ocall_disk_init(int backend_type);
+        int ocall_disk_init(int backend_type, [in, size = BLK_SZ] uint8_t *zero_encrypted);
 
         int ocall_disk_read([out, size = BLK_SZ] uint8_t *buf, uint32_t bid);
 

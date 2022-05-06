@@ -7,11 +7,13 @@
 #include "block.h"
 #include "inode.h"
 
+extern uint8_t zero_encrypted[BLK_SZ];
+
 int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash, int backend_type)
 {
-    if(0 != disk_init(backend_type)) return 1;
+    if(0 != security_init(iv, key)) return 1;
 
-    if(0 != security_init()) return 1;
+    if(0 != disk_init(backend_type, zero_encrypted)) return 1;
 
     if(0 != sb_init(iv, key, exp_hash)) return 1;
 

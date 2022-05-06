@@ -148,7 +148,7 @@ endif
 
 
 .PHONY: all target run
-all: .config_$(BUILD_MODE)_$(SGX_ARCH)
+all: clean .config_$(BUILD_MODE)_$(SGX_ARCH)
 	$(MAKE) target
 
 ifeq ($(BUILD_MODE), HW_RELEASE)
