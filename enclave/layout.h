@@ -54,7 +54,7 @@ typedef struct {
 #define SUPERBLOCK_START (0)
 #define SUPERBLOCK_CNT (uint32_t)((sizeof(superblock_t) >> BLK_SZ_BITS) + 1)
 
-// reversed for little endian
+// store reversedly by byte per 8-byte word for convience of little endian
 #define INODE_BITMAP_START (SUPERBLOCK_START + SUPERBLOCK_CNT)
 #define INODE_BITMAP_CNT (1U)
 

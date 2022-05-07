@@ -25,11 +25,21 @@
 
 #define LEFTMOST_SET_BIT_MASK_64(n) (NEXT_POW2_64(n) >> 1)
 #define LEFTMOST_SET_BIT_64(n) BITCOUNT64(LEFTMOST_SET_BIT_MASK_64(n) - 1)
-#define BITMAP_FIRST_EMPTY_64(n) ((~(n) == 0) ? -1 : (int)(63 - LEFTMOST_SET_BIT_64(~(n))))
+#define BITMAP_FIRST_EMPTY_64(n) ({                                             \
+                                    int _ret;                                   \
+                                    if(~(n) == 0)                               \
+                                        _ret = -1;                              \
+                                    else if(~(n) & (1UL << 63))                 \
+                                        _ret = 0;                               \
+                                    else                                        \
+                                        _ret = (int)LEFTMOST_SET_BIT_64(~(n));  \
+                                    _ret;                                       \
+                                })
 
+#define BITMAP_BITPERWORD (sizeof(uint64_t) * 8)
 #define BITMAP_WORD_PER_BLOCK (BLK_SZ / sizeof(uint64_t))
-#define BITMAP_WORDID2BID(wid) (BITMAP_START + BITMAP_CNT - 1 - (wid)/BITMAP_WORD_PER_BLOCK)
-#define BITMAP_DID2BID(did) (BITMAP_START + BITMAP_CNT - 1 - (did)/(BLK_SZ * 8))
+#define BITMAP_WORDID2BID(wid) (BITMAP_START + (wid)/BITMAP_WORD_PER_BLOCK)
+#define BITMAP_DID2BID(did) (BITMAP_START + (did)/(BLK_SZ * 8))
 
 int bitmap_init(void);
 

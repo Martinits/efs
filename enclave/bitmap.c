@@ -11,9 +11,13 @@
 #include <pthread.h>
 
 extern superblock_t sb;
+
 uint8_t ibm[BLK_SZ * INODE_BITMAP_CNT];
+uint32_t ibm_first_empty_word = 0; // with probability
 pthread_mutex_t ibm_lock = PTHREAD_MUTEX_INITIALIZER;
+
 uint32_t dbm_first_empty_word = 0; // with probability
+pthread_mutex_t dbm_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int bitmap_init(void)
 {
@@ -42,19 +46,22 @@ uint16_t ibm_alloc(void)
 {
     pthread_mutex_lock(&ibm_lock);
 
-    uint32_t ret = 0;
-    uint64_t *p = (uint64_t *)(ibm + sizeof(ibm)) - 1;
+    uint32_t ret = ibm_first_empty_word * BITMAP_BITPERWORD;
+    uint64_t *p = (uint64_t *)ibm + ibm_first_empty_word;
     int tmp;
 
-    for(;(uint8_t *)p >= ibm; p--, ret += sizeof(*p) * 8){
+    for(;(uint8_t *)p < ibm + sizeof(ibm); p++, ret += BITMAP_BITPERWORD){
         tmp = (int)BITMAP_FIRST_EMPTY_64(*p);
         if(tmp != -1) break;
     }
 
     if(tmp == -1) return 0;
 
-    *p |= 1 << tmp;
-    ret += tmp;
+    *p |= 1UL << tmp;
+    ret += 63 - tmp;
+
+    // if this word is full, move to next word
+    if(~(*p) == 0) ibm_first_empty_word++;
 
     pthread_mutex_unlock(&ibm_lock);
 
@@ -63,24 +70,37 @@ uint16_t ibm_alloc(void)
 
 int ibm_free(uint16_t iid)
 {
+    if(iid == 0)
+        panic("ibm try to free rootinode");
+
     pthread_mutex_lock(&ibm_lock);
 
-    uint8_t *p = ibm + sizeof(ibm) - (iid/8 + 1);
+    uint8_t *p = ibm + iid/8;
 
-    *p &= (uint8_t)~(1U << (iid%8));
+    *p &= (uint8_t)~(1U << (7-iid%8));
+
+    if(ibm_first_empty_word > iid/BITMAP_BITPERWORD)
+        ibm_first_empty_word = iid/BITMAP_BITPERWORD;
 
     pthread_mutex_unlock(&ibm_lock);
 
     return 0;
 }
 
+// return did
 uint32_t dbm_alloc(void)
 {
-    uint32_t bid = BITMAP_WORDID2BID(dbm_first_empty_word);
-    uint32_t ret = dbm_first_empty_word * sizeof(uint64_t) * 8;
-    uint32_t wid = dbm_first_empty_word % BITMAP_WORD_PER_BLOCK;
+    uint32_t bid, ret, wid;
 
-    for(; bid >= BITMAP_START; bid--, wid = 0){
+    pthread_mutex_lock(&dbm_lock);
+
+    bid = BITMAP_WORDID2BID(dbm_first_empty_word);
+    ret = dbm_first_empty_word * BITMAP_BITPERWORD;
+    wid = dbm_first_empty_word % BITMAP_WORD_PER_BLOCK;
+
+    pthread_mutex_unlock(&dbm_lock);
+
+    for(; bid < DATA_START; bid++, wid = 0){
         sb_lock();
         block_t *bp = bget_from_cache_lock(bid, NULL, &sb.aes_iv[SB_KEY_IDX(bid)],
                                             &sb.aes_key[SB_KEY_IDX(bid)],
@@ -91,21 +111,24 @@ uint32_t dbm_alloc(void)
             return 0;
         }
 
-        uint64_t *p = (uint64_t *)(bp->data + BLK_SZ);
-        p -= wid + 1;
+        uint64_t *p = (uint64_t *)(bp->data) + wid;
 
         int tmp;
-        for(;(uint8_t *)p >= bp->data; p--, ret += sizeof(*p) * 8){
+        for(;(uint8_t *)p < bp->data + BLK_SZ; p++, ret += BITMAP_BITPERWORD){
             tmp = (int)BITMAP_FIRST_EMPTY_64(*p);
             if(tmp != -1) break;
         }
 
         if(tmp != -1){
-            *p |= 1 << tmp;
-            ret += tmp;
+            *p |= 1UL << tmp;
+            ret += 63 - tmp;
 
             // if this word is full, move to next word
-            if(~(*p) == 0) dbm_first_empty_word++;
+            if(~(*p) == 0){
+                pthread_mutex_lock(&dbm_lock);
+                dbm_first_empty_word++;
+                pthread_mutex_unlock(&dbm_lock);
+            }
 
             block_make_dirty(bp->bid);
             block_unlock_return(bp);
@@ -140,9 +163,14 @@ int dbm_free(uint32_t did)
     }
 
     uint32_t blk_offset = did % (BLK_SZ * 8);
-    uint8_t *p = bp->data + BLK_SZ - 1 - blk_offset / 8;
+    uint8_t *p = bp->data + blk_offset / 8;
 
-    *p &= (uint8_t)~(1U << (blk_offset%8));
+    *p &= (uint8_t)~(1UL << (7-blk_offset%8));
+
+    pthread_mutex_lock(&dbm_lock);
+    if(dbm_first_empty_word > did/BITMAP_BITPERWORD)
+        dbm_first_empty_word = did/BITMAP_BITPERWORD;
+    pthread_mutex_unlock(&dbm_lock);
 
     return block_make_dirty(bp->bid) || block_unlock_return(bp);
 }

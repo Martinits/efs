@@ -119,7 +119,7 @@ int main()
     fp = fopen(EFS_DISK_NAME, "r+");
     if(!fp) return 1;
 
-    uint8_t data[BLK_SZ] = {0}, sbdata[BLK_SZ * SUPERBLOCK_CNT] = {0}, *tmp = NULL;
+    uint8_t data[BLK_SZ] = {0}, sbdata[BLK_SZ * SUPERBLOCK_CNT] = {0};
 
     //calc zero hash
     if(0 != sha256_block(data, &zero_sha256)) return 1;
@@ -139,10 +139,10 @@ int main()
     //inode bitmap
     for(uint32_t i = INODE_BITMAP_START; i < INODE_START; i++){
         memset(data, 0, BLK_SZ);
-        if(i == INODE_START - 1){
-            tmp = data + BLK_SZ - sizeof(uint8_t);
+        if(i == INODE_BITMAP_START){
             // only one inode -- rootinode
-            *tmp = 0x01;
+            uint64_t *tmp = (uint64_t *)data;
+            *tmp = 1UL << 63;
             if(0 != sha256_block(data, SB_HASH_PTR(i))) return 1;
         }else{
             memcpy(SB_HASH_PTR(i), &zero_sha256, sizeof(key256_t));

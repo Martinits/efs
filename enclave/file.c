@@ -57,7 +57,7 @@ static int fset_delete(file *fp)
 
 static int fset_contains(const char *path)
 {
-    return SET_TRUE != set_contains(&pathset, path);
+    return SET_TRUE == set_contains(&pathset, path);
 }
 
 static int file_lock(file *fp)

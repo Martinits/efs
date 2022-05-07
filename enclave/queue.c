@@ -4,6 +4,7 @@
 
 int queue_init(struct queue *q)
 {
+    q->head.next = q->head.prev = &q->head;
     return map_init(&q->mp);
 }
 

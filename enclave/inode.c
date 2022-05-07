@@ -308,7 +308,7 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
 // must hold inode lock
 static uint32_t inode_rw_data(inode_t *ip, void *buf, uint32_t off, uint32_t size, int write)
 {
-    if(off >= ip->size || off + size <= off)
+    if(off + size <= off)
         return 0;
 
     if(write){
@@ -401,7 +401,8 @@ static inode_t *inode_new_get(inode_t *ip, const char *name, uint16_t type)
             return NULL;
     }
 
-    if(empty == -1) return NULL;
+    if(empty == -1)
+        empty = ip->size / sizeof(de);
 
     uint16_t iid = ibm_alloc();
     if(iid == 0) return 0;
