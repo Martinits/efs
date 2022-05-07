@@ -30,7 +30,7 @@
                                     if(~(n) == 0)                               \
                                         _ret = -1;                              \
                                     else if(~(n) & (1UL << 63))                 \
-                                        _ret = 0;                               \
+                                        _ret = 63;                               \
                                     else                                        \
                                         _ret = (int)LEFTMOST_SET_BIT_64(~(n));  \
                                     _ret;                                       \

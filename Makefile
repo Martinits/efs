@@ -210,6 +210,11 @@ enclave/enclave_t.c: enclave/enclave_t.h
 enclave/%.o: enclave/%.c enclave/enclave_t.h
 	$(CC) $(SGX_COMMON_CFLAGS) $(ENCLAVE_CFLAGS) -c $< -o $@
 
+.PHONY: mkfs
+mkfs: mkfs/mkfs.c
+	$(CC) -Iinclude -Ienclave -Wall mkfs/mkfs.c -lcrypto -g -o mkfs/mkfs
+	./mkfs/mkfs
+
 $(ENCLAVE_NAME): enclave/enclave_t.o $(ENCLAVE_C_OBJS)
 	$(CC) -Iinclude -Ienclave -Wall mkfs/mkfs.c -lcrypto -g -o mkfs/mkfs
 	./mkfs/mkfs

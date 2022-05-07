@@ -7,6 +7,7 @@
 #include "disk.h"
 #include "block.h"
 #include "bitmap.h"
+#include "superblock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,7 +111,12 @@ static inode_t *iget_from_cache(uint16_t iid, int sure_not_cached)
 
     inode_t **ipp = (inode_t **)cache_insert_get(&icac, iid, 0);
 
-    block_t *bp = bget_from_cache_lock(INODE_IID2BID(iid), NULL, NULL, NULL, NULL);
+    uint32_t ibid = INODE_IID2BID(iid);
+
+    sb_lock();
+    block_t *bp = bget_from_cache_lock(INODE_IID2BID(iid), NULL,
+                                        SB_IV_PTR(ibid), SB_KEY_PTR(ibid), SB_HASH_PTR(ibid));
+    sb_unlock();
     if(bp == NULL) return NULL;
 
     dinode_t *dip = (dinode_t *)(bp->data + INODE_BLOCK_OFFSET(iid));
@@ -173,7 +179,7 @@ static void get_real_hash_index(index_t *idxp, uint32_t bid)
 
 static void index_lookup_one_level(index_t *idxp, inode_t *ip, uint32_t bid,
                                     uint8_t bidx, const hashidx_t hashidx[4],
-                                    const key256_t *exp_hash, int write)
+                                    const key256_t *exp_hash, int write, int *new)
 {
     block_t *bp = bget_from_cache_lock(bid, hashidx,
                                 &ip->aes_iv, &ip->aes_key, exp_hash);
@@ -181,9 +187,12 @@ static void index_lookup_one_level(index_t *idxp, inode_t *ip, uint32_t bid,
 
     index_t *idxp_tmp = (index_t *)(bp->data) + bidx;
 
+    *new = 0;
+
     if(write && idxp_tmp->bid == 0){
         idxp_tmp->bid = block_alloc();
         if(idxp_tmp->bid == 0) return;
+        *new = 1;
         memcpy(&idxp_tmp->hash, zero_block_sha256(), sizeof(key256_t));
         block_make_dirty(bp->bid);
     }else{
@@ -198,9 +207,11 @@ static void index_lookup_one_level(index_t *idxp, inode_t *ip, uint32_t bid,
 
 // must hold inode lock
 static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
-                                    hashidx_t hashidx[4], key256_t *exp_hash)
+                                    hashidx_t hashidx[4], key256_t *exp_hash, int *new)
 {
     index_t idx;
+
+    *new = 0;
 
     hashidx[0].iid = ip->iid;
 
@@ -210,6 +221,7 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
         if(write && ip->bid[bidx] == 0){
             ip->bid[bidx] = block_alloc();
             if(ip->bid[bidx] == 0) return 0;
+            *new = 1;
             memcpy(&ip->hash[bidx], zero_block_sha256(), sizeof(key256_t));
             inode_make_dirty(ip);
         }else{
@@ -224,9 +236,11 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
     if(bidx < NINDIRECT1){
         hashidx[0].idx = NDIRECT;
 
+        int tmpnew = 0;
         if(write && ip->bid[NDIRECT] == 0){
             ip->bid[NDIRECT] = block_alloc();
             if(ip->bid[NDIRECT] == 0) return 0;
+            tmpnew = 1;
             memcpy(&ip->hash[NDIRECT], zero_block_sha256(), sizeof(key256_t));
             inode_make_dirty(ip);
         }else{
@@ -234,7 +248,7 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
         }
 
         index_lookup_one_level(&idx, ip, ip->bid[NDIRECT], (uint8_t)bidx,
-                                hashidx, &ip->hash[NDIRECT], write);
+                                hashidx, tmpnew ? NULL : &ip->hash[NDIRECT], write, new);
         hashidx[1].bid = ip->bid[NDIRECT];
         hashidx[1].idx = (uint8_t)bidx;
 
@@ -246,9 +260,11 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
     if(bidx < NINDIRECT2){
         hashidx[0].idx = NDIRECT + 1;
 
+        int tmpnew = 0;
         if(write && ip->bid[NDIRECT + 1] == 0){
             ip->bid[NDIRECT + 1] = block_alloc();
             if(ip->bid[NDIRECT + 1] == 0) return 0;
+            tmpnew = 1;
             memcpy(&ip->hash[NDIRECT + 1], zero_block_sha256(), sizeof(key256_t));
             inode_make_dirty(ip);
         }else{
@@ -257,14 +273,14 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
 
         index_lookup_one_level(&idx, ip, ip->bid[NDIRECT + 1],
                                 (uint8_t)(bidx/INDEX_PER_BLOCK), hashidx,
-                                &ip->hash[NDIRECT + 1], write);
+                                tmpnew ? NULL : &ip->hash[NDIRECT + 1], write, &tmpnew);
         hashidx[1].bid = ip->bid[NDIRECT + 1];
         hashidx[1].idx = (uint8_t)(bidx / INDEX_PER_BLOCK);
 
         bidx %= INDEX_PER_BLOCK;
 
         index_lookup_one_level(&idx, ip, idx.bid, (uint8_t)bidx,
-                                hashidx, &idx.hash, write);
+                                hashidx, tmpnew ? NULL : &idx.hash, write, new);
         hashidx[2].bid = idx.bid;
         hashidx[2].idx = (uint8_t)bidx;
 
@@ -275,9 +291,11 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
 
     hashidx[0].idx = NDIRECT + 2;
 
+    int tmpnew = 0;
     if(write && ip->bid[NDIRECT + 2] == 0){
         ip->bid[NDIRECT + 2] = block_alloc();
         if(ip->bid[NDIRECT + 2] == 0) return 0;
+        tmpnew = 1;
         memcpy(&ip->hash[NDIRECT + 2], zero_block_sha256(), sizeof(key256_t));
         inode_make_dirty(ip);
     }else{
@@ -286,18 +304,19 @@ static uint32_t inode_index_lookup(inode_t *ip, uint32_t bidx, int write,
 
     index_lookup_one_level(&idx, ip, ip->bid[NDIRECT + 2],
                             (uint8_t)(bidx/INDEX_PER_BLOCK/INDEX_PER_BLOCK),
-                            hashidx, &ip->hash[NDIRECT + 2], write);
+                            hashidx, tmpnew ? NULL : &ip->hash[NDIRECT + 2], write, &tmpnew);
     hashidx[1].bid = ip->bid[NDIRECT + 2];
     hashidx[1].idx = (uint8_t)(bidx / INDEX_PER_BLOCK / INDEX_PER_BLOCK);
 
     bidx %= INDEX_PER_BLOCK * INDEX_PER_BLOCK;
     index_lookup_one_level(&idx, ip, idx.bid, (uint8_t)(bidx/INDEX_PER_BLOCK),
-                            hashidx, &idx.hash, write);
+                            hashidx, tmpnew ? NULL : &idx.hash, write, &tmpnew);
     hashidx[2].bid = idx.bid;
     hashidx[2].idx = (uint8_t)(bidx / INDEX_PER_BLOCK);
 
     bidx %= INDEX_PER_BLOCK;
-    index_lookup_one_level(&idx, ip, idx.bid, (uint8_t)bidx, hashidx, &idx.hash, write);
+    index_lookup_one_level(&idx, ip, idx.bid, (uint8_t)bidx, hashidx,
+                            tmpnew ? NULL : &idx.hash, write, new);
     hashidx[3].bid = idx.bid;
     hashidx[3].idx = (uint8_t)bidx;
 
@@ -324,13 +343,14 @@ static uint32_t inode_rw_data(inode_t *ip, void *buf, uint32_t off, uint32_t siz
     block_t *bp;
     hashidx_t hashidx[4];
     key256_t exp_hash;
+    int new;
 
     memset(hashidx, 0, sizeof(hashidx));
 
     for(done = 0; done < size; done += round, tofrom += round, off += round){
-        uint32_t bid = inode_index_lookup(ip, off/BLK_SZ, write, hashidx, &exp_hash);
+        uint32_t bid = inode_index_lookup(ip, off/BLK_SZ, write, hashidx, &exp_hash, &new);
 
-        bp = bget_from_cache_lock(bid, hashidx, &ip->aes_iv, &ip->aes_key, &exp_hash);
+        bp = bget_from_cache_lock(bid, hashidx, &ip->aes_iv, &ip->aes_key, new ? NULL : &exp_hash);
 
         round = MIN(size - done, BLK_SZ - off%BLK_SZ);
         if(write){

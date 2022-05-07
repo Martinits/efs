@@ -103,15 +103,20 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
     block_t *bp = (block_t *)malloc(sizeof(block_t));
     if(bp == NULL) return NULL;
 
-    if(0 != disk_read(bp->data, bid)) goto error;
+    if(exp_hash){
+        if(0 != disk_read(bp->data, bid)) goto error;
 
-    if(0 != aes128_block_decrypt(iv, key, bp->data)) goto error;
+        if(0 != aes128_block_decrypt(iv, key, bp->data)) goto error;
 
-    if(0 != sha256_validate(bp->data, exp_hash)){
-        char buf[51] = {0};
-        snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
-        panic(buf);
-        goto error;
+        if(0 != sha256_validate(bp->data, exp_hash)){
+            char buf[51] = {0};
+            snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
+            panic(buf);
+            goto error;
+        }
+    }else{
+        // new allocated block
+        memset(bp->data, 0, BLK_SZ);
     }
 
     bp->bid = bid;
@@ -165,13 +170,10 @@ block_t *bget_from_cache_lock(uint32_t bid, const hashidx_t hashidx[4], const ke
 
     if(!(*bpp)){
         if(type == BLK_TP_INODE || type == BLK_TP_BITMAP){
-            sb_lock();
-            *bpp = get_block_from_disk(bid, type, NULL, SB_IV_PTR(bid),
-                                        SB_KEY_PTR(bid), SB_HASH_PTR(bid));
-            sb_unlock();
+            // no need to sb_lock since the caller should have take care of it
+            *bpp = get_block_from_disk(bid, type, NULL, iv, key, exp_hash);
         }else{
             *bpp = get_block_from_disk(bid, type, hashidx, iv, key, exp_hash);
-            return *bpp;
         }
     }
 

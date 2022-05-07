@@ -82,9 +82,6 @@ int ocall_disk_setzero(uint32_t bid)
 
 int ocall_log(int log_type, char *msg, uint32_t len)
 {
-    if(strlen(msg) != len)
-        return 1;
-
     switch(log_type)
     {
         case LOG_TRACE : log_trace(msg); break;
