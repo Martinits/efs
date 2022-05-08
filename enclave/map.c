@@ -125,7 +125,7 @@ int map_exit(struct map *mp)
         tmpnode_t *tmp = (tmpnode_t *)malloc(sizeof(tmpnode_t));
         tmp->t = t;
         tmp->next = tmphead;
-        tmphead->next = tmp;
+        tmphead = tmp;
     }
 
     while(tmphead){

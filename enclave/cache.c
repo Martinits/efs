@@ -198,24 +198,23 @@ int cache_unlock_return(cache_t *cac, uint32_t id)
 
 int cache_exit(cache_t *cac)
 {
-    struct list *p;
+    struct list *p, *tmp;
 
     //free fifo
     p = cac->fifo.head.next;
-    while(p){
+    while(p != &cac->fifo.head){
+        tmp = p->next;
         node_free(cac->content_cb_write, p);
-        p = p->next;
+        p = tmp;
     }
 
     //free lru
     p = cac->lru.head.next;
-    while(p){
+    while(p != &cac->lru.head){
+        tmp = p->next;
         node_free(cac->content_cb_write, p);
-        p = p->next;
+        p = tmp;
     }
 
-    queue_exit(&cac->fifo);
-    queue_exit(&cac->lru);
-
-    return 0;
+    return queue_exit(&cac->fifo) || queue_exit(&cac->lru);
 }

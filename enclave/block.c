@@ -67,7 +67,8 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 
         struct pd_wb_node *node = pd_wb_find(bid);
         if(node == NULL){
-            if(0 != pd_wb_insert(bid)) goto error;
+            node = pd_wb_insert(bid);
+            if(node == NULL) goto error;
         }
 
         if(0 != sha256_block(bp->data, &node->hash)) goto error;
@@ -210,11 +211,16 @@ struct pd_wb_node *pd_wb_find(uint32_t bid)
     return map_search(&pd_wb, bid);
 }
 
-int pd_wb_insert(uint32_t bid)
+struct pd_wb_node *pd_wb_insert(uint32_t bid)
 {
     struct pd_wb_node *node = (struct pd_wb_node *)malloc(sizeof(struct pd_wb_node));
 
-    return map_insert(&pd_wb, bid, node);
+    if(0 != map_insert(&pd_wb, bid, node)){
+        free(node);
+        return NULL;
+    }
+
+    return node;
 }
 
 int pd_wb_delete(uint32_t bid)

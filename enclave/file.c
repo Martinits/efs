@@ -19,7 +19,7 @@ pthread_mutex_t fset_lk = PTHREAD_MUTEX_INITIALIZER;
 int file_init(void)
 {
     fset_head.next = NULL;
-    return set_init(&pathset);
+    return SET_TRUE != set_init(&pathset);
 }
 
 static int fset_lock(void)
@@ -39,7 +39,7 @@ static int fset_insert(file *fp)
     node->next = fset_head.next;
     fset_head.next = node;
 
-    return set_add(&pathset, fp->path);
+    return SET_TRUE != set_add(&pathset, fp->path);
 }
 
 static int fset_delete(file *fp)
@@ -52,7 +52,7 @@ static int fset_delete(file *fp)
         free(tmp);
     }
 
-    return set_remove(&pathset, fp->path);
+    return SET_TRUE != set_remove(&pathset, fp->path);
 }
 
 static int fset_contains(const char *path)
@@ -157,13 +157,13 @@ int fclose(file *fp)
 {
     fset_lock();
 
-    if(fset_contains(fp->path)){
+    if(!fset_contains(fp->path)){
         fset_unlock();
         return 1;
     }
 
     fset_delete(fp);
-    fset_lock();
+    fset_unlock();
 
     file_lock(fp);
 

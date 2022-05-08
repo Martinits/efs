@@ -55,7 +55,7 @@ int pd_wb_unlock(void);
 
 struct pd_wb_node *pd_wb_find(uint32_t bid);
 
-int pd_wb_insert(uint32_t bid);
+struct pd_wb_node *pd_wb_insert(uint32_t bid);
 
 int pd_wb_delete(uint32_t bid);
 
