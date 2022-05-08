@@ -7,4 +7,6 @@
 
 #define IKH_SZ (sizeof(key128_t) * 2 + sizeof(key256_t))
 
+#define NTESTERS (10)
+
 #endif

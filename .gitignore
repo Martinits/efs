@@ -11,3 +11,4 @@ enclave_u.h
 *.pem
 todolist
 tmp*
+mkfs/mkfs

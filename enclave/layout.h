@@ -23,10 +23,10 @@ typedef struct {
     key256_t hash[NDIRECT + 3];
 } dinode_t;
 
-#define DIRNAME_MAX_LEN (14)
+#define DIRNAME_MAX_LEN (13)
 typedef struct {
     uint16_t iid;
-    char name[DIRNAME_MAX_LEN];
+    char name[DIRNAME_MAX_LEN + 1];
 } dirent_t;
 
 #define BITCOUNT32(n) ({                                      \

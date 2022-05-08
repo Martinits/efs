@@ -110,7 +110,7 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
         if(0 != aes128_block_decrypt(iv, key, bp->data)) goto error;
 
         if(0 != sha256_validate(bp->data, exp_hash)){
-            char buf[51] = {0};
+            char buf[50] = {0};
             snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
             panic(buf);
             goto error;
@@ -118,6 +118,13 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
     }else{
         // new allocated block
         memset(bp->data, 0, BLK_SZ);
+
+        char buf[100] = {0};
+        for(uint i=0;i<sizeof(iv->k);i++) snprintf(buf+2*i, 3, "%02x", iv->k[i]);
+        elog(LOG_DEBUG, "new block %d: iv = %s", bid, buf);
+
+        for(uint i=0;i<sizeof(key->k);i++) snprintf(buf+2*i, 3, "%02x", key->k[i]);
+        elog(LOG_DEBUG, "new block %d: key = %s", bid, buf);
     }
 
     bp->bid = bid;
@@ -321,7 +328,10 @@ int block_exit(void)
         dinode_t *dip = (dinode_t *)(idata + INODE_BLOCK_OFFSET(node->hashidx[0].iid));
 
         memcpy(&hash, &node->hash, sizeof(key256_t));
-        for(int i = 3; i > 0; i--){
+
+        int i = 3;
+        while(i > 0 && node->hashidx[i].bid == 0) i--;
+        for(; i > 0; i--){
             if(0 != bget_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key))
                 continue;
 

@@ -408,7 +408,7 @@ static inode_t *inode_new_get(inode_t *ip, const char *name, uint16_t type)
     dirent_t de;
     int empty = -1;
 
-    if(strlen(name) > sizeof(de.name)) return NULL;
+    if(strlen(name) > DIRNAME_MAX_LEN) return NULL;
 
     for(uint32_t off = 0; off < ip->size; off += sizeof(dirent_t)){
         if(sizeof(de) != inode_rw_data(ip, &de, off, sizeof(de), 0))
@@ -428,6 +428,7 @@ static inode_t *inode_new_get(inode_t *ip, const char *name, uint16_t type)
     if(iid == 0) return 0;
 
     de.iid = iid;
+    memset(&de.name, 0, sizeof(de.name));
     strncpy(de.name, name, sizeof(de.name));
 
     if(sizeof(de) != inode_rw_data(ip, &de, empty * (uint32_t)sizeof(de), sizeof(de), 1))
@@ -440,9 +441,17 @@ static inode_t *inode_new_get(inode_t *ip, const char *name, uint16_t type)
     newip->type = type;
     newip->size = 0;
     memset(&newip->bid, 0, sizeof(newip->bid));
-    memset(&newip->hash, 0, sizeof(ip->hash));
-    key128_gen(&ip->aes_iv);
-    key128_gen(&ip->aes_key);
+    memset(&newip->hash, 0, sizeof(newip->hash));
+    key128_gen(&newip->aes_iv);
+    key128_gen(&newip->aes_key);
+
+    char buf[100] = {0};
+    for(uint i=0;i<sizeof(newip->aes_iv.k);i++) snprintf(buf+2*i, 3, "%02x", newip->aes_iv.k[i]);
+    elog(LOG_DEBUG, "new inode %d: iv = %s", iid, buf);
+
+    for(uint i=0;i<sizeof(newip->aes_key.k);i++) snprintf(buf+2*i, 3, "%02x", newip->aes_key.k[i]);
+    elog(LOG_DEBUG, "new inode %d: key = %s", iid, buf);
+
     inode_make_dirty(newip);
 
     inode_unlock(newip);

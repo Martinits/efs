@@ -155,6 +155,7 @@ int main()
     for(uint32_t i = INODE_START; i < BITMAP_START; i++){
         memset(data, 0, BLK_SZ);
         if(i == INODE_START){
+            //rootinode
             dinode_t *dip = (dinode_t *)data;
             dip->type = INODE_TP_DIR;
             dip->size = 0;

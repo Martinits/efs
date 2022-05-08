@@ -9,6 +9,7 @@
 #include "sgx_urts.h"
 #include "entry.h"
 #include "enclave_u.h"
+#include "test_common.h"
 
 extern int ocall_init(void);
 
@@ -46,13 +47,21 @@ int SGX_CDECL main(int argc, char *argv[])
     }
 
     int retval;
-    if(ecall_efs_test(global_eid, &retval) != SGX_SUCCESS || retval != 0)
-        printf("efs_init fail with %d\n", retval);
-    else printf("efs_init ok\n");
+    /*for(int i = 0; i < 1; i++){*/
+        /*if(ecall_efs_test(global_eid, &retval, i) != SGX_SUCCESS || retval != 0){*/
+            /*printf("efs_test %d fail with %d\n", i, retval);*/
+            /*break;*/
+        /*}*/
+        /*else printf("efs_test %d ok\n", i);*/
+    /*}*/
+
+    if(ecall_efs_test(global_eid, &retval, 0) != SGX_SUCCESS || retval != 0)
+        printf("efs_test fail with %d\n", retval);
+    else printf("efs_test ok\n");
 
     sgx_destroy_enclave(global_eid);
 
-    printf("Info: SampleEnclave successfully returned.\n");
+    printf("Info: Enclave successfully returned.\n");
 
     return 0;
 }
