@@ -94,12 +94,12 @@ int inode_init(void)
 
 static int inode_lock(inode_t *ip)
 {
-    return cache_node_unlock(&icac, ip->iid);
+    return cache_node_lock(&icac, ip->iid);
 }
 
 static int inode_unlock(inode_t *ip)
 {
-    return cache_node_lock(&icac, ip->iid);
+    return cache_node_unlock(&icac, ip->iid);
 }
 
 static inode_t *iget_from_cache(uint16_t iid, int sure_not_cached)
