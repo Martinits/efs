@@ -36,9 +36,90 @@ static int efs_test_1(void)
     return 0;
 }
 
+static int rand(void *buf, uint32_t len){
+    return SGX_SUCCESS != sgx_read_rand(buf, len);
+}
+
+// fseek ftell feof
+static int efs_test_2(void)
+{
+    file *fp = fopen("/testfile", O_CREATE | O_RDWR);
+    if(!fp) return 1;
+
+    uint8_t buf[4096] = {0}, test;
+
+    if(0 != rand(buf, sizeof(buf))) return 1;
+
+    if(sizeof(buf) != fwrite(fp, buf, sizeof(buf))) return 1;
+
+    if(0 != fclose(fp)) return 1;
+
+    fp = fopen("/testfile", O_RDONLY);
+    if(!fp) return 1;
+
+    uint32_t pos;
+    for(int i = 0; i < 100; i++){
+        if(0 != rand(&pos, sizeof(uint32_t))) return 1;
+
+        pos %= sizeof(buf);
+
+        if(0 != fseek(fp, pos, SEEK_SET)) return 1;
+
+        if(1 != fread(fp, &test, 1)) return 1;
+
+        if(test != buf[pos]) return 1;
+    }
+
+    if(0 != rand(&pos, sizeof(uint32_t))) return 1;
+    pos %= sizeof(buf);
+    if(0 != fseek(fp, pos, SEEK_SET)) return 1;
+    uint32_t newpos;
+    if(0 != rand(&newpos, sizeof(newpos))) return 1;
+    newpos %= sizeof(buf)-pos;
+    if(0 != fseek(fp, newpos, SEEK_CUR)) return 1;
+    newpos += pos;
+    if(newpos != ftell(fp)) return 1;
+    if(1 != fread(fp, &test, 1)) return 1;
+    if(test != buf[newpos]) return 1;
+
+    if(0 != fseek(fp, 0, SEEK_END)) return 1;
+    if(!feof(fp)) return 1;
+
+    if(0 != fclose(fp)) return 1;
+
+    return 0;
+}
+
+//mkdir rmdir rmfile
+static int efs_test_3(void)
+{
+    file *fp = fopen("/file1", O_CREATE | O_RDWR);
+    if(!fp) return 1;
+    if(0 != fclose(fp)) return 1;
+
+    if(0 != mkdir("/dir1")) return 1;
+    if(0 == mkdir("/dir1")) return 1;
+    if(0 != mkdir("/dir2")) return 1;
+    if(0 != mkdir("/dir1/dir11")) return 1;
+    if(0 != mkdir("/dir3")) return 1;
+    if(0 != rmdir("/dir3")) return 1;
+
+    fp = fopen("/dir1/dir11/file111", O_CREATE | O_RDWR);
+    if(!fp) return 1;
+    if(0 != fclose(fp)) return 1;
+
+    if(0 == rmdir("/dir1/dir11")) return 1;
+
+    if(0 != rmfile("/dir1/dir11/file111")) return 1;
+
+    return 0;
+}
+
 static int (*efs_testers[NTESTERS])(void) = {
     efs_test_0,
     efs_test_1,
+    efs_test_2,
+    efs_test_3,
     NULL,
 };
 

@@ -74,6 +74,8 @@ static int path_check(const char *path)
 {
     const char *p = path, *tmp;
 
+    if(!strcmp(path, "/")) return 0;
+
     while(*p){
         if(*p != '/') return 1;
         p++;
@@ -100,6 +102,10 @@ static int path_split(const char *path, char *upper, char *last)
 
     memcpy(upper, path, p-path);
     *(upper + (p-path)) = 0;
+    if(upper[0] == 0){
+        upper[0] = '/';
+        upper[1] = 0;
+    }
 
     memcpy(last, p+1, end-p);
     *(last + (end-p)) = 0;
@@ -185,6 +191,8 @@ uint32_t fread(file *fp, void *data, uint32_t size)
 
     uint32_t ret = inode_read_file(fp->ip, data, fp->offset, size);
 
+    fp->offset += ret;
+
     file_unlock(fp);
 
     return ret;
@@ -195,6 +203,8 @@ uint32_t fwrite(file *fp, void *data, uint32_t size)
     file_lock(fp);
 
     uint32_t ret = inode_write_file(fp->ip, data, fp->offset, size);
+
+    fp->offset += ret;
 
     file_unlock(fp);
 
@@ -227,19 +237,25 @@ int fseek(file *fp, uint32_t off, int whence)
 {
     file_lock(fp);
 
-    uint32_t newoff = 0;
+    uint32_t newoff = 0, ipsize = inode_get_size(fp->ip);
     switch(whence){
         case SEEK_SET: newoff = 0; break;
         case SEEK_CUR: newoff = fp->offset; break;
-        case SEEK_END: newoff = inode_get_size(fp->ip); break;
+        case SEEK_END: newoff = ipsize; break;
         default: file_unlock(fp); return 1;
     }
 
-    fp->offset = newoff + off;
+    if(newoff + off < newoff) goto error;
+    newoff += off;
+    if(newoff > ipsize) goto error;
 
+    fp->offset = newoff;
     file_unlock(fp);
-
     return 0;
+
+error:
+    file_unlock(fp);
+    return 1;
 }
 
 int mkdir(const char *path)

@@ -55,7 +55,7 @@ int SGX_CDECL main(int argc, char *argv[])
         /*else printf("efs_test %d ok\n", i);*/
     /*}*/
 
-    if(ecall_efs_test(global_eid, &retval, 0) != SGX_SUCCESS || retval != 0)
+    if(ecall_efs_test(global_eid, &retval, 3) != SGX_SUCCESS || retval != 0)
         printf("efs_test fail with %d\n", retval);
     else printf("efs_test ok\n");
 

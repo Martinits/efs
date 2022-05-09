@@ -495,14 +495,17 @@ found:
     if(delip == NULL) return 1;
 
     inode_lock(delip);
-    if(delip->type != type){
-        inode_unlock(delip);
-        return 1;
-    }
+    if(delip->type != type) goto error;
+    if(type == INODE_TP_DIR && delip->size != 0)
+        goto error;
     inode_make_deleted(delip);
     inode_unlock(delip);
 
     return 0;
+
+error:
+    inode_unlock(delip);
+    return 1;
 }
 
 // return not locked ip
