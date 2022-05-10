@@ -345,6 +345,8 @@ int block_exit(void)
 
     sb_lock();
 
+    elog(LOG_INFO, "clear pd_wb %d", pd_wb_len);
+
     while((node = map_clear_iter(&pd_wb, &id))){
         // update hash according to hashidx
         uint32_t ibid = INODE_IID2BID(node->hashidx[0].iid);
@@ -380,6 +382,8 @@ int block_exit(void)
     sb_unlock();
 
     map_exit(&pd_wb);
+
+    elog(LOG_INFO, "block exit done");
 
     return 0;
 }

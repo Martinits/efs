@@ -13,6 +13,8 @@ pthread_mutex_t sblock = PTHREAD_MUTEX_INITIALIZER;
 
 int sb_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash)
 {
+    elog(LOG_INFO, "sb init");
+
     // load sb
     uint8_t data[BLK_SZ * SUPERBLOCK_CNT] = {0};
 
@@ -46,6 +48,8 @@ int sb_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash)
         }
     }
 
+    elog(LOG_INFO, "sb init done");
+
     return 0;
 }
 
@@ -61,6 +65,8 @@ int sb_unlock(void)
 
 int sb_exit(const key128_t *iv, const key128_t *key, key256_t *hash)
 {
+    elog(LOG_INFO, "sb exit");
+
     sb.magic = EFS_MAGIC;
     sb.rootinode = 0;
 
@@ -101,6 +107,8 @@ int sb_exit(const key128_t *iv, const key128_t *key, key256_t *hash)
         if(0 != disk_write(data + i * BLK_SZ, i))
             return 1;
     }
+
+    elog(LOG_INFO, "sb exit done");
 
     return 0;
 }

@@ -201,6 +201,8 @@ int cache_unlock_return(cache_t *cac, uint32_t id)
 
 int cache_exit(cache_t *cac)
 {
+    elog(LOG_INFO, "cache exit");
+
     struct list *p, *tmp;
 
     //free fifo

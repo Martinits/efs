@@ -121,6 +121,8 @@ typedef struct _tmpnode_t {
 
 int map_exit(struct map *mp)
 {
+    elog(LOG_INFO, "map exit");
+
     tmpnode_t *tmphead = NULL, *tmpp;
     struct rb_node *p = NULL;
     struct treenode *t = NULL;
@@ -143,6 +145,8 @@ int map_exit(struct map *mp)
         free(tmpp->t);
         free(tmpp);
     }
+
+    elog(LOG_INFO, "map exit done");
 
     return 0;
 }

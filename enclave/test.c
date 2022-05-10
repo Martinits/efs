@@ -164,7 +164,7 @@ static int efs_test_5(void)
     uint8_t check;
     uint32_t checkpos;
 
-    for(int i = 0; i < 10000; i++){
+    for(int i = 0; i < 500; i++){
         if(0 != rand(&checkpos, sizeof(checkpos))) return 1;
         checkpos %= sizeof(rands);
         elog(LOG_DEBUG, "check %d: block: %d", i, checkpos);
@@ -172,6 +172,7 @@ static int efs_test_5(void)
         if(1 != fread(fp, &check, 1)) return 1;
         if(check != rands[checkpos]) return 1;
     }
+    panic("debug");
 
     if(0 != fclose(fp)) return 1;
 
@@ -202,15 +203,15 @@ int ecall_efs_test(int n)
 
     if(0 != efs_init(iv, key, hash, BACKEND_TP_FILE)) return 1;
 
-    if(0 != efs_testers[n]()) return 1;
+    if(0 != efs_testers[4]()) return 1;
 
     if(efs_exit(iv, key, hash) != 0) return 1;
 
-    /*if(0 != efs_init(iv, key, hash, BACKEND_TP_FILE)) return 1;*/
+    if(0 != efs_init(iv, key, hash, BACKEND_TP_FILE)) return 1;
 
-    /*if(0 != efs_testers[5]()) return 1;*/
+    if(0 != efs_testers[5]()) return 1;
 
-    /*if(efs_exit(iv, key, hash) != 0) return 1;*/
+    if(efs_exit(iv, key, hash) != 0) return 1;
 
     if(SGX_SUCCESS != ocall_tester_set_ikh(&retval, ikh) || retval != 0)
         return 1;
