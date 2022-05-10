@@ -6,6 +6,6 @@
 
 int elog(int type, const char *msg, ...);
 
-void panic(char *msg);
+void panic(const char *msg, ...);
 
 #endif

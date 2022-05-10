@@ -5,6 +5,7 @@
 #include "types.h"
 #include "set.h"
 #include "layout.h"
+#include "error.h"
 #include <pthread.h>
 #include <ctype.h>
 
@@ -35,6 +36,10 @@ static int fset_unlock(void)
 static int fset_insert(file *fp)
 {
     struct fset *node = (struct fset *)malloc(sizeof(struct fset));
+    if(node == NULL){
+        panic("malloc failed");
+        return 1;
+    }
     node->fp = fp;
     node->next = fset_head.next;
     fset_head.next = node;
@@ -126,7 +131,10 @@ file *fopen(const char *filename, int flags)
     uint64_t pathlen = strlen(filename);
 
     file *fp = (file *)malloc(sizeof(file) + pathlen * (1 + sizeof(char)));
-    if(fp == NULL) goto error;
+    if(fp == NULL){
+        panic("malloc failed");
+        goto error;
+    }
 
     strncpy(fp->path, filename, pathlen);
     fp->path[pathlen] = 0;

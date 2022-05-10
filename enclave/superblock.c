@@ -41,9 +41,7 @@ int sb_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash)
             return 1;
 
         if(0 != sha256_validate(data, SB_HASH_PTR(bid))){
-            char buf[50] = {0};
-            snprintf(buf, 50, "block hash validation failed during init, bid = %d", bid);
-            panic(buf);
+            panic("block hash validation failed during init, bid = %d", bid);
             return 1;
         }
     }

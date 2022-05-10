@@ -28,5 +28,9 @@ enclave {
         int ocall_tester_get_ikh([out, size = 64] uint8_t *buf);
 
         int ocall_tester_set_ikh([in, size = 64] uint8_t *buf);
+
+        int ocall_keep_for_me([in, size = BLK_SZ] uint8_t *buf, uint32_t len);
+
+        int ocall_get_kept([out, size = BLK_SZ] uint8_t *buf, uint32_t len);
     };
 };

@@ -1,4 +1,5 @@
 #include "efs.h"
+#include "error.h"
 #include "sgx_trts.h"
 #include "enclave_t.h"
 #include "test_common.h"
@@ -115,11 +116,75 @@ static int efs_test_3(void)
     return 0;
 }
 
+// bigfile
+uint8_t rands[1024] = {0};
+static int efs_test_4(void)
+{
+    file *fp = fopen("/bigfile", O_CREATE | O_RDWR);
+    if(!fp) return 1;
+
+    uint8_t buf[BLK_SZ] = {0};
+    /*if(0 != rand(rands, sizeof(rands))) return 1;*/
+    memset(rands, 0x5a, sizeof(rands));
+    for(uint32_t i = 0; i < sizeof(rands); i++){
+        elog(LOG_DEBUG, "%d", i);
+        memset(buf, rands[i], sizeof(buf));
+        if(sizeof(buf) != fwrite(fp, buf, sizeof(buf))) return 1;
+    }
+
+    if(0 != fclose(fp)) return 1;
+
+    fp = fopen("/bigfile", O_RDONLY);
+    if(!fp) return 1;
+
+    uint32_t pos;
+    for(int i = 0; i < 1000; i++){
+        if(0 != rand(&pos, sizeof(pos))) return 1;
+        pos %= sizeof(rands);
+        if(0 != fseek(fp, pos*sizeof(buf), SEEK_SET)) return 1;
+        if(sizeof(buf) != fread(fp, buf, sizeof(buf))) return 1;
+        uint j = sizeof(buf);
+        while(j--){
+            if(buf[j] != rands[pos]) return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int efs_test_5(void)
+{
+    elog(LOG_INFO, "test 5");
+
+    memset(rands, 0x5a, sizeof(rands));
+
+    file *fp = fopen("/bigfile", O_RDONLY);
+    if(!fp) return 1;
+
+    uint8_t check;
+    uint32_t checkpos;
+
+    for(int i = 0; i < 10000; i++){
+        if(0 != rand(&checkpos, sizeof(checkpos))) return 1;
+        checkpos %= sizeof(rands);
+        elog(LOG_DEBUG, "check %d: block: %d", i, checkpos);
+        if(0 != fseek(fp, checkpos * BLK_SZ, SEEK_SET)) return 1;
+        if(1 != fread(fp, &check, 1)) return 1;
+        if(check != rands[checkpos]) return 1;
+    }
+
+    if(0 != fclose(fp)) return 1;
+
+    return 0;
+}
+
 static int (*efs_testers[NTESTERS])(void) = {
     efs_test_0,
     efs_test_1,
     efs_test_2,
     efs_test_3,
+    efs_test_4,
+    efs_test_5,
     NULL,
 };
 
@@ -140,6 +205,12 @@ int ecall_efs_test(int n)
     if(0 != efs_testers[n]()) return 1;
 
     if(efs_exit(iv, key, hash) != 0) return 1;
+
+    /*if(0 != efs_init(iv, key, hash, BACKEND_TP_FILE)) return 1;*/
+
+    /*if(0 != efs_testers[5]()) return 1;*/
+
+    /*if(efs_exit(iv, key, hash) != 0) return 1;*/
 
     if(SGX_SUCCESS != ocall_tester_set_ikh(&retval, ikh) || retval != 0)
         return 1;

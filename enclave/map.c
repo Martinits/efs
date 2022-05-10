@@ -1,5 +1,6 @@
 #include "types.h"
 #include "map.h"
+#include "error.h"
 #include <stdlib.h>
 
 struct treenode {
@@ -65,6 +66,10 @@ int map_init(struct map *mp)
 int map_insert(struct map *mp, uint32_t id, void *data)
 {
     struct treenode *newnode = (struct treenode *)malloc(sizeof(struct treenode));
+    if(newnode == NULL){
+        panic("malloc failed");
+        return 1;
+    }
     if(newnode == NULL) return 1;
 
     newnode->id = id;
@@ -123,6 +128,10 @@ int map_exit(struct map *mp)
     for(p = rb_first(&mp->tree_root); p; p = rb_next(p)){
         t = container_of(p, struct treenode, node);
         tmpnode_t *tmp = (tmpnode_t *)malloc(sizeof(tmpnode_t));
+        if(tmp == NULL){
+            panic("malloc failed");
+            return 1;
+        }
         tmp->t = t;
         tmp->next = tmphead;
         tmphead = tmp;

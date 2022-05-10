@@ -18,6 +18,7 @@ extern superblock_t sb;
 cache_t bcac;
 
 struct map pd_wb;
+uint32_t pd_wb_len = 0;
 pthread_mutex_t pd_wb_lk = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -73,7 +74,7 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 
         if(0 != sha256_block(bp->data, &node->hash)) goto error;
 
-        memcpy(&node->hashidx, bp->hashidx, sizeof(bp->hashidx));
+        memcpy(node->hashidx, bp->hashidx, sizeof(bp->hashidx));
 
         pd_wb_unlock();
     }
@@ -89,6 +90,7 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 
 error:
     pd_wb_unlock();
+    panic("bcache_cb_write failed");
     return 1;
 }
 
@@ -102,7 +104,10 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
                                     const key128_t *key, const key256_t *exp_hash)
 {
     block_t *bp = (block_t *)malloc(sizeof(block_t));
-    if(bp == NULL) return NULL;
+    if(bp == NULL){
+        panic("malloc failed");
+        return NULL;
+    }
 
     if(exp_hash){
         if(0 != disk_read(bp->data, bid)) goto error;
@@ -110,21 +115,24 @@ static block_t *get_block_from_disk(uint32_t bid, uint16_t type,
         if(0 != aes128_block_decrypt(iv, key, bp->data)) goto error;
 
         if(0 != sha256_validate(bp->data, exp_hash)){
-            char buf[50] = {0};
-            snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
-            panic(buf);
+            panic("block hash validation failed, bid = %d, type = %d, \
+                    hashidx = {%d, %d}, {%d, %d}, {%d, %d}, {%d, %d}", bid, type,
+                    hashidx[0].iid, hashidx[0].idx,
+                    hashidx[1].bid, hashidx[1].idx,
+                    hashidx[2].bid, hashidx[2].idx,
+                    hashidx[3].bid, hashidx[3].idx);
             goto error;
         }
     }else{
         // new allocated block
         memset(bp->data, 0, BLK_SZ);
 
-        char buf[100] = {0};
-        for(uint i=0;i<sizeof(iv->k);i++) snprintf(buf+2*i, 3, "%02x", iv->k[i]);
-        elog(LOG_DEBUG, "new block %d: iv = %s", bid, buf);
+        // char buf[100] = {0};
+        // for(uint i=0;i<sizeof(iv->k);i++) snprintf(buf+2*i, 3, "%02x", iv->k[i]);
+        // elog(LOG_DEBUG, "new block %d: iv = %s", bid, buf);
 
-        for(uint i=0;i<sizeof(key->k);i++) snprintf(buf+2*i, 3, "%02x", key->k[i]);
-        elog(LOG_DEBUG, "new block %d: key = %s", bid, buf);
+        // for(uint i=0;i<sizeof(key->k);i++) snprintf(buf+2*i, 3, "%02x", key->k[i]);
+        // elog(LOG_DEBUG, "new block %d: key = %s", bid, buf);
     }
 
     bp->bid = bid;
@@ -221,11 +229,18 @@ struct pd_wb_node *pd_wb_find(uint32_t bid)
 struct pd_wb_node *pd_wb_insert(uint32_t bid)
 {
     struct pd_wb_node *node = (struct pd_wb_node *)malloc(sizeof(struct pd_wb_node));
+    if(node == NULL){
+        panic("malloc failed");
+        return NULL;
+    }
 
     if(0 != map_insert(&pd_wb, bid, node)){
         free(node);
         return NULL;
     }
+
+    pd_wb_len++;
+    elog(LOG_DEBUG, "pd_wb_len = %d", pd_wb_len);
 
     return node;
 }
@@ -234,7 +249,10 @@ int pd_wb_delete(uint32_t bid)
 {
     struct pd_wb_node *tofree = NULL;
     if(0 != map_delete(&pd_wb, bid, (void **)&tofree))
-        free(tofree);
+        return 1;
+
+    free(tofree);
+    pd_wb_len--;
 
     return 0;
 }
@@ -273,7 +291,10 @@ uint8_t *bget_raw(uint32_t bid, const key128_t *iv, const key128_t *key, int *in
     }
 
     uint8_t *blk = (uint8_t *)malloc(BLK_SZ);
-    if(blk == NULL) return NULL;
+    if(blk == NULL){
+        panic("malloc failed");
+        return NULL;
+    }
 
     if(0 != disk_read(blk, bid)) return NULL;
 
@@ -302,15 +323,19 @@ static int bget_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const ke
     return 0;
 }
 
-static void breturn_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const key128_t *key)
+static int breturn_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const key128_t *key)
 {
-    if(0 != aes128_block_encrypt(iv, key, data)) return;
+    if(0 != aes128_block_encrypt(iv, key, data)) return 1;
 
-    disk_write(data, bid);
+    if(0 != disk_write(data, bid)) return 1;
+
+    return 0;
 }
 
 int block_exit(void)
 {
+    elog(LOG_INFO, "block exit");
+
     cache_exit(&bcac);
 
     uint32_t id;
@@ -324,7 +349,7 @@ int block_exit(void)
         // update hash according to hashidx
         uint32_t ibid = INODE_IID2BID(node->hashidx[0].iid);
         if(0 != bget_simple(ibid, idata, SB_IV_PTR(ibid), SB_KEY_PTR(ibid)))
-            continue;
+            return 1;
         dinode_t *dip = (dinode_t *)(idata + INODE_BLOCK_OFFSET(node->hashidx[0].iid));
 
         memcpy(&hash, &node->hash, sizeof(key256_t));
@@ -333,18 +358,20 @@ int block_exit(void)
         while(i > 0 && node->hashidx[i].bid == 0) i--;
         for(; i > 0; i--){
             if(0 != bget_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key))
-                continue;
+                return 1;
 
             index_t *idxp = (index_t *)(data) + node->hashidx[i].idx;
             memcpy(&idxp->hash, &hash, sizeof(key256_t));
 
-            sha256_block(data, &hash);
+            if(0 != sha256_block(data, &hash)) return 1;
 
-            breturn_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key);
+            if(0 != breturn_simple(node->hashidx[i].bid, data, &dip->aes_iv, &dip->aes_key))
+                return 1;
         }
 
         memcpy(&dip->hash[node->hashidx[0].idx], &hash, sizeof(key256_t));
-        breturn_simple(ibid, idata, SB_IV_PTR(ibid), SB_KEY_PTR(ibid));
+        if(0 != breturn_simple(ibid, idata, SB_IV_PTR(ibid), SB_KEY_PTR(ibid)))
+            return 1;
         // no need to update hash in sb
 
         free(node);

@@ -1,6 +1,7 @@
 #include "types.h"
 #include "security.h"
 #include "layout.h"
+#include "error.h"
 #include "enclave_t.h"
 #include "sgx_trts.h"
 #include <openssl/conf.h>
@@ -94,7 +95,10 @@ static int sha256_calc(const uint8_t *data, uint32_t size, key256_t *hash)
 
     uint len;
     uint8_t *digest = (uint8_t *)OPENSSL_malloc(EVP_MD_size(EVP_sha256()));
-    if(!digest) return 1;
+    if(!digest){
+        panic("OPENSSL_malloc failed");
+        return 1;
+    }
 
     if(1 != EVP_DigestFinal_ex(ctx, digest, &len))
         return 1;

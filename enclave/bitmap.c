@@ -32,9 +32,7 @@ int bitmap_init(void)
             return 1;
 
         if(0 != sha256_validate(p, &sb.hash[SB_KEY_IDX(bid)])){
-            char buf[50] = {0};
-            snprintf(buf, 50, "block hash validation failed, bid = %d", bid);
-            panic(buf);
+            panic("block hash validation failed, bid = %d", bid);
             return 1;
         }
     }

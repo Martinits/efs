@@ -98,7 +98,10 @@ static int node_unlock(struct list *node)
 void **cache_insert_get(cache_t *cac, uint32_t id, int lock)
 {
     struct list *res = (struct list *)malloc(sizeof(struct list));
-    if(res == NULL) return NULL;
+    if(res == NULL){
+        panic("malloc failed");
+        return NULL;
+    }
 
     res->id = id;
     res->dirty = 0;

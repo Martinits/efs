@@ -113,3 +113,17 @@ int ocall_disk_exit(void)
 
     return 0;
 }
+
+uint8_t *tmp;
+int ocall_keep_for_me(uint8_t *buf, uint32_t len)
+{
+    tmp = (uint8_t *)malloc(sizeof(len));
+    memcpy(tmp, buf, len);
+    return 0;
+}
+
+int ocall_get_kept(uint8_t *buf, uint32_t len)
+{
+    memcpy(buf, tmp, len);
+    return 0;
+}
