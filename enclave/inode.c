@@ -105,7 +105,7 @@ static int inode_unlock(inode_t *ip)
 static inode_t *iget_from_cache(uint16_t iid, int sure_not_cached)
 {
     if(!sure_not_cached){
-        inode_t *ret = cache_try_get(&icac, iid, 0);
+        inode_t *ret = cache_try_get(&icac, iid, 0, 1);
         if(ret) return ret;
     }
 

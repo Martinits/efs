@@ -98,7 +98,7 @@ void ocall_panic(int exitcode)
 {
     log_fatal("Enclave panic and exit with code %d\n", exitcode);
 
-    //while(1);
+    while(1);
 
     if(SGX_SUCCESS == sgx_destroy_enclave(global_eid)){
         fprintf(stdout, "Enclave %ld destroyed\n", global_eid);

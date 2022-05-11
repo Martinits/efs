@@ -79,7 +79,7 @@ typedef struct {
 
 typedef struct {
     uint32_t magic;
-    uint32_t nblock;
+    uint32_t maxbid;
     // uint32_t ibitmap_start;
     // uint32_t nibitmap;
     // uint32_t inode_start;

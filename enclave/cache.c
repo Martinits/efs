@@ -135,9 +135,9 @@ void **cache_insert_get(cache_t *cac, uint32_t id, int lock)
     return &res->content;
 }
 
-void *cache_try_get(cache_t *cac, uint32_t id, int lock)
+void *cache_try_get(cache_t *cac, uint32_t id, int lock, int access)
 {
-    struct list *res = cache_find(cac, id, 1);
+    struct list *res = cache_find(cac, id, access);
     if(res == NULL) return NULL;
 
     node_lock(res);
@@ -197,6 +197,21 @@ int cache_unlock_return(cache_t *cac, uint32_t id)
     if(node->refcnt <= 0)
         panic("cache return 0 refcnt block");
     node->refcnt--;
+
+    node_unlock(node);
+
+    return 0;
+}
+
+int cache_dirty_unlock_return(cache_t *cac, uint32_t id)
+{
+    struct list *node = cache_find(cac, id, 0);
+    if(node == NULL) return 1;
+
+    if(node->refcnt <= 0)
+        panic("cache return 0 refcnt block");
+    node->refcnt--;
+    node->dirty = 1;
 
     node_unlock(node);
 

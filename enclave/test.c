@@ -117,7 +117,7 @@ static int efs_test_3(void)
 }
 
 // bigfile
-uint8_t rands[1024] = {0};
+uint8_t rands[30*1024] = {0};
 static int efs_test_4(void)
 {
     file *fp = fopen("/bigfile", O_CREATE | O_RDWR);
@@ -139,8 +139,10 @@ static int efs_test_4(void)
 
     uint32_t pos;
     for(int i = 0; i < 1000; i++){
-        if(0 != rand(&pos, sizeof(pos))) return 1;
-        pos %= sizeof(rands);
+        /*if(0 != rand(&pos, sizeof(pos))) return 1;*/
+        /*pos %= sizeof(rands);*/
+        pos = sizeof(rands) - i - 1;
+        elog(LOG_DEBUG, "i = %d", i);
         if(0 != fseek(fp, pos*sizeof(buf), SEEK_SET)) return 1;
         if(sizeof(buf) != fread(fp, buf, sizeof(buf))) return 1;
         uint j = sizeof(buf);
@@ -164,7 +166,7 @@ static int efs_test_5(void)
     uint8_t check;
     uint32_t checkpos;
 
-    for(int i = 0; i < 500; i++){
+    for(int i = 0; i < 1000; i++){
         if(0 != rand(&checkpos, sizeof(checkpos))) return 1;
         checkpos %= sizeof(rands);
         elog(LOG_DEBUG, "check %d: block: %d", i, checkpos);

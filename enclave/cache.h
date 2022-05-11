@@ -23,7 +23,7 @@ typedef struct {
 
 int cache_init(cache_t *cac, content_cb_write_t content_cb_write);
 
-void *cache_try_get(cache_t *cac, uint32_t id, int lock);
+void *cache_try_get(cache_t *cac, uint32_t id, int lock, int access);
 
 void **cache_insert_get(cache_t *cac, uint32_t id, int lock);
 
@@ -38,6 +38,8 @@ int cache_node_lock(cache_t *cac, uint32_t id);
 int cache_node_unlock(cache_t *cac, uint32_t id);
 
 int cache_unlock_return(cache_t *cac, uint32_t id);
+
+int cache_dirty_unlock_return(cache_t *cac, uint32_t id);
 
 int cache_exit(cache_t *cac);
 

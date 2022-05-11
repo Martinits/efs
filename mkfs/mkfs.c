@@ -127,7 +127,7 @@ int main()
     //superblock
     superblock_t *sb = (superblock_t *)sbdata;
     sb->magic = EFS_MAGIC;
-    sb->nblock = DATA_START;
+    sb->maxbid = DATA_START - 1;
     sb->rootinode = 0;
     for(uint i = INODE_BITMAP_START; i < DATA_START; i++){
         if(0 != key128_gen(SB_IV_PTR(i))) return 1;

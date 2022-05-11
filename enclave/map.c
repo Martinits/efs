@@ -75,7 +75,12 @@ int map_insert(struct map *mp, uint32_t id, void *data)
     newnode->id = id;
     newnode->data = data;
 
-    return rb_insert(&mp->tree_root, newnode);
+    if(0 != rb_insert(&mp->tree_root, newnode)){
+        free(newnode);
+        return 1;
+    }
+
+    return 0;
 }
 
 void *map_search(struct map *mp, uint32_t id)

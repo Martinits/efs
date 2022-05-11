@@ -131,7 +131,7 @@ uint32_t dbm_alloc(void)
             block_make_dirty(bp->bid);
             block_unlock_return(bp);
 
-            if(sb.nblock < DID2BID(ret)) sb.nblock = DID2BID(ret);
+            if(sb.maxbid < DID2BID(ret)) sb.maxbid = DID2BID(ret);
 
             return ret;
         }

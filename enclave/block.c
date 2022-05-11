@@ -15,6 +15,7 @@
 
 extern superblock_t sb;
 
+extern cache_t icac;
 cache_t bcac;
 
 struct map pd_wb;
@@ -28,7 +29,15 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 {
     block_t *bp = (block_t *)content;
 
-    if(deleted || !dirty){
+    if(deleted){
+        pd_wb_lock();
+        pd_wb_delete(bid);
+        pd_wb_unlock();
+        free(bp);
+        return 0;
+    }
+
+    if(!dirty){
         free(bp);
         return 0;
     }
@@ -50,13 +59,12 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
             return 1;
         }
 
-        // no need to update hash in sb
-        // sb_lock();
-        // if(0 != sha256_block(bp->data, SB_HASH_PTR(bid))){
-        //     sb_unlock();
-        //     return 1;
-        // }
-        // sb_unlock();
+        sb_lock();
+        if(0 != sha256_block(bp->data, SB_HASH_PTR(bid))){
+            sb_unlock();
+            return 1;
+        }
+        sb_unlock();
 
     }else{
         if(bp->type != BLK_TP_DATA){
@@ -64,17 +72,49 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
             return 1;
         }
 
-        pd_wb_lock();
+        key256_t hash;
+        if(0 != sha256_block(bp->data, &hash)) goto error;
 
-        struct pd_wb_node *node = pd_wb_find(bid);
-        if(node == NULL){
-            node = pd_wb_insert(bid);
-            if(node == NULL) goto error;
+        int incache = 0;
+
+        int i = 3;
+        while(i > 0 && bp->hashidx[i].bid == 0) i--;
+        if(i > 0){
+            // write hash to index
+            block_t *ret = cache_try_get(&bcac, bp->hashidx[i].bid, 0, 0);
+            if(ret){
+                incache = 1;
+                index_t *idxp = (index_t *)(ret->data) + bp->hashidx[i].idx;
+                memcpy(&idxp->hash, &hash, sizeof(hash));
+                if(0 != cache_dirty_unlock_return(&bcac, bp->hashidx[i].bid))
+                    goto error;
+            }
         }
 
-        if(0 != sha256_block(bp->data, &node->hash)) goto error;
+        // if upper is inode, do not try to get from icac, may cause deadlock
+        /*else{*/
+            /*// i == 0, write hash to inode*/
+            /*inode_t *ip = cache_try_get(&icac, bp->hashidx[0].iid, 1, 0);*/
+            /*if(ip){*/
+                /*incache = 1;*/
+                /*memcpy(&ip->hash[bp->hashidx[0].idx], &hash, sizeof(hash));*/
+                /*if(0 != cache_dirty_unlock_return(&icac, bp->hashidx[0].iid)) goto error;*/
+            /*}*/
+        /*}*/
 
-        memcpy(node->hashidx, bp->hashidx, sizeof(bp->hashidx));
+        pd_wb_lock();
+
+        if(incache){
+            pd_wb_delete(bid);
+        }else{
+            struct pd_wb_node *node = pd_wb_find(bid);
+            if(node == NULL){
+                node = pd_wb_insert(bid);
+                if(node == NULL) goto pd_wb_error;
+                memcpy(node->hashidx, bp->hashidx, sizeof(bp->hashidx));
+            }
+            memcpy(&node->hash, &hash, sizeof(hash));
+        }
 
         pd_wb_unlock();
     }
@@ -88,8 +128,9 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
     free(bp);
     return 0;
 
-error:
+pd_wb_error:
     pd_wb_unlock();
+error:
     panic("bcache_cb_write failed");
     return 1;
 }
@@ -164,7 +205,7 @@ int block_unlock(uint32_t bid)
 block_t *bget_from_cache_lock(uint32_t bid, const hashidx_t hashidx[4], const key128_t *iv,
                                 const key128_t *key, const key256_t *exp_hash)
 {
-    block_t *ret = cache_try_get(&bcac, bid, 1);
+    block_t *ret = cache_try_get(&bcac, bid, 1, 1);
     if(ret) return ret;
 
     block_t **bpp = (block_t **)cache_insert_get(&bcac, bid, 1);
@@ -240,7 +281,7 @@ struct pd_wb_node *pd_wb_insert(uint32_t bid)
     }
 
     pd_wb_len++;
-    elog(LOG_DEBUG, "pd_wb_len = %d", pd_wb_len);
+    // elog(LOG_DEBUG, "pd_wb_len = %d", pd_wb_len);
 
     return node;
 }
@@ -284,7 +325,7 @@ uint8_t *bget_raw(uint32_t bid, const key128_t *iv, const key128_t *key, int *in
 {
     if(bid < DATA_START) return NULL;
 
-    block_t *ret = cache_try_get(&bcac, bid, 1);
+    block_t *ret = cache_try_get(&bcac, bid, 1, 1);
     if(ret){
         *in_cache = 1;
         return ret->data;
@@ -336,7 +377,7 @@ int block_exit(void)
 {
     elog(LOG_INFO, "block exit");
 
-    cache_exit(&bcac);
+    if(0 != cache_exit(&bcac)) return 1;
 
     uint32_t id;
     struct pd_wb_node *node = NULL;
@@ -345,6 +386,31 @@ int block_exit(void)
 
     sb_lock();
 
+    // deduplicate
+    elog(LOG_INFO, "deduplication");
+
+    struct map dupbids;
+    if(0 != map_init(&dupbids)) return 1;
+
+    int dummy;
+    while((node = map_clear_iter(&pd_wb, &id))){
+        int i = 3;
+        while(i > 0 && node->hashidx[i].bid == 0) i--;
+        for(; i > 0; i--)
+            map_insert(&dupbids, node->hashidx[i].bid, &dummy);
+    }
+
+    while(&dummy == map_clear_iter(&dupbids, &id)){
+        pd_wb_delete(id);
+    }
+
+    if(0 != map_exit(&dupbids)) return 1;
+
+
+    // merge
+    elog(LOG_INFO, "merge");
+
+    // write back cascadedly
     elog(LOG_INFO, "clear pd_wb %d", pd_wb_len);
 
     while((node = map_clear_iter(&pd_wb, &id))){
