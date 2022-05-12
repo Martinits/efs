@@ -8,6 +8,7 @@
 #include "log.h"
 #include "log_types.h"
 #include "efs_common.h"
+#include "time.h"
 
 #define BACKEND_FILE_NAME EFS_DISK_NAME
 
@@ -126,4 +127,10 @@ int ocall_get_kept(uint8_t *buf, uint32_t len)
 {
     memcpy(buf, tmp, len);
     return 0;
+}
+
+long ocall_getclock(void)
+{
+    return clock();
+    CLOCKS_PER_SEC;
 }

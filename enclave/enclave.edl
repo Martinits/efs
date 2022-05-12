@@ -4,7 +4,7 @@ enclave {
     from "sgx_tstdc.edl" import *;
 
     trusted {
-        public int ecall_efs_test(int n);
+        public int ecall_efs_test(int n, uint32_t filesz, uint32_t rwunit, uint32_t randtime);
     };
 
     #define BLK_SZ 4096
@@ -32,5 +32,7 @@ enclave {
         int ocall_keep_for_me([in, size = BLK_SZ] uint8_t *buf, uint32_t len);
 
         int ocall_get_kept([out, size = BLK_SZ] uint8_t *buf, uint32_t len);
+
+        long ocall_getclock(void);
     };
 };

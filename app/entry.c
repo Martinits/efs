@@ -55,13 +55,18 @@ int SGX_CDECL main(int argc, char *argv[])
         /*else printf("efs_test %d ok\n", i);*/
     /*}*/
 
-    if(ecall_efs_test(global_eid, &retval, 4) != SGX_SUCCESS || retval != 0)
+    uint idx, filesz, rwunit;
+    sscanf(argv[1], "%d", &idx);
+    sscanf(argv[2], "%d", &filesz);
+    sscanf(argv[3], "%d", &rwunit);
+
+    if(ecall_efs_test(global_eid, &retval, idx, filesz, rwunit, 1000) != SGX_SUCCESS || retval != 0)
         printf("efs_test fail with %d\n", retval);
-    else printf("efs_test ok\n");
+    /*else printf("efs_test ok\n");*/
 
     sgx_destroy_enclave(global_eid);
 
-    printf("Info: Enclave successfully returned.\n");
+    /*printf("Info: Enclave successfully returned.\n");*/
 
     return 0;
 }

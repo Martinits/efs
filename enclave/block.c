@@ -59,12 +59,13 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
             return 1;
         }
 
-        sb_lock();
+        // must have hold sb lock
+        //sb_lock();
         if(0 != sha256_block(bp->data, SB_HASH_PTR(bid))){
             sb_unlock();
             return 1;
         }
-        sb_unlock();
+        //sb_unlock();
 
     }else{
         if(bp->type != BLK_TP_DATA){
@@ -77,19 +78,19 @@ static int bcache_cb_write(void *content, uint32_t bid, int dirty, int deleted)
 
         int incache = 0;
 
-        int i = 3;
-        while(i > 0 && bp->hashidx[i].bid == 0) i--;
-        if(i > 0){
-            // write hash to index
-            block_t *ret = cache_try_get(&bcac, bp->hashidx[i].bid, 0, 0);
-            if(ret){
-                incache = 1;
-                index_t *idxp = (index_t *)(ret->data) + bp->hashidx[i].idx;
-                memcpy(&idxp->hash, &hash, sizeof(hash));
-                if(0 != cache_dirty_unlock_return(&bcac, bp->hashidx[i].bid))
-                    goto error;
-            }
-        }
+        /*int i = 3;*/
+        /*while(i > 0 && bp->hashidx[i].bid == 0) i--;*/
+        /*if(i > 0){*/
+            /*// write hash to index*/
+            /*block_t *ret = cache_try_get(&bcac, bp->hashidx[i].bid, 0, 0);*/
+            /*if(ret){*/
+                /*incache = 1;*/
+                /*index_t *idxp = (index_t *)(ret->data) + bp->hashidx[i].idx;*/
+                /*memcpy(&idxp->hash, &hash, sizeof(hash));*/
+                /*if(0 != cache_dirty_unlock_return(&bcac, bp->hashidx[i].bid))*/
+                    /*goto error;*/
+            /*}*/
+        /*}*/
 
         // if upper is inode, do not try to get from icac, may cause deadlock
         /*else{*/
@@ -375,7 +376,7 @@ static int breturn_simple(uint32_t bid, uint8_t *data, const key128_t *iv, const
 
 int block_exit(void)
 {
-    elog(LOG_INFO, "block exit");
+    elog(LOG_DEBUG, "block exit");
 
     if(0 != cache_exit(&bcac)) return 1;
 
@@ -387,7 +388,7 @@ int block_exit(void)
     sb_lock();
 
     // deduplicate
-    elog(LOG_INFO, "deduplication");
+    elog(LOG_DEBUG, "deduplication");
 
     struct map dupbids;
     if(0 != map_init(&dupbids)) return 1;
@@ -408,10 +409,10 @@ int block_exit(void)
 
 
     // merge
-    elog(LOG_INFO, "merge");
+    elog(LOG_DEBUG, "merge");
 
     // write back cascadedly
-    elog(LOG_INFO, "clear pd_wb %d", pd_wb_len);
+    elog(LOG_DEBUG, "clear pd_wb %d", pd_wb_len);
 
     while((node = map_clear_iter(&pd_wb, &id))){
         // update hash according to hashidx
@@ -449,7 +450,7 @@ int block_exit(void)
 
     map_exit(&pd_wb);
 
-    elog(LOG_INFO, "block exit done");
+    elog(LOG_DEBUG, "block exit done");
 
     return 0;
 }

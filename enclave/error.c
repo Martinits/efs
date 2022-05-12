@@ -8,6 +8,8 @@
 
 int elog(int type, const char *msg, ...)
 {
+    if(type != LOG_FATAL && type != LOG_INFO) return 0;
+
     char buf[200] = {0};
 
     va_list ap;

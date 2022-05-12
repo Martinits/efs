@@ -208,7 +208,13 @@ uint32_t fread(file *fp, void *data, uint32_t size)
 
 uint32_t fwrite(file *fp, void *data, uint32_t size)
 {
+
     file_lock(fp);
+
+    if(!fp->writable){
+        file_unlock(fp);
+        return 0;
+    }
 
     uint32_t ret = inode_write_file(fp->ip, data, fp->offset, size);
 

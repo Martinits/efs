@@ -12,7 +12,7 @@ extern uint8_t zero_encrypted[BLK_SZ];
 
 int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash, int backend_type)
 {
-    elog(LOG_INFO, "efs init");
+    elog(LOG_DEBUG, "efs init");
 
     if(0 != security_init(iv, key)) return 1;
 
@@ -28,14 +28,14 @@ int efs_init(const key128_t *iv, const key128_t *key, const key256_t *exp_hash, 
 
     if(0 != file_init()) return 1;
 
-    elog(LOG_INFO, "efs init done");
+    elog(LOG_DEBUG, "efs init done");
 
     return 0;
 }
 
 int efs_exit(const key128_t *iv, const key128_t *key, key256_t *hash)
 {
-    elog(LOG_INFO, "efs exit");
+    elog(LOG_DEBUG, "efs exit");
 
     if(0 != file_exit()) return 1;
 
@@ -51,6 +51,6 @@ int efs_exit(const key128_t *iv, const key128_t *key, key256_t *hash)
 
     if(0 != disk_exit()) return 1;
 
-    elog(LOG_INFO, "efs exit done");
+    elog(LOG_DEBUG, "efs exit done");
     return 0;
 }
