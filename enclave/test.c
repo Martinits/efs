@@ -275,7 +275,7 @@ static int test_random_read(void)
 
 static int test_random_write(void)
 {
-    file *fp = fopen("/bigfile", O_RDONLY);
+    file *fp = fopen("/bigfile", O_RDWR);
     if(!fp) return 1;
 
     uint8_t buf[rw_unit * 1024];
